@@ -1,0 +1,68 @@
+@jwtToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImFkZHJlc3MiOiIweGYzMjE2OTJhNDNhZTVjODI5NDg1NjhiZDYxNjVkNGQ1ZWExODg4MmEiLCJpYXQiOjE3Nzc1NTcyODIsImV4cCI6MTc3ODE1NzI4Mn0.tzf6g6Y1U3Jj2wYeccBqbr1xHiepZPYsIoQDt12Plh0
+
+### 获取nonce
+GET http://localhost:3000/nonce/0x44E280e672298fc9b356726f0cdc9acb9706deCC
+
+
+### 登陆
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+    "address": "0xf321692a43ae5c82948568bd6165d4d5ea18882a", 
+    "signature": "changeme"
+}
+
+### 注册
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+    "address": "0x0000000000000000000000000000000000000002", 
+    "refCode": "ELWCJMVB",
+    "signature": "changeme"
+}
+
+### 账户详情
+GET http://localhost:3000/auth/profile
+Authorization: Bearer {{jwtToken}}
+
+
+### 查询佣金层级
+GET http://localhost:3000/account/commission-level
+Authorization: Bearer {{jwtToken}}
+
+
+### 购买矿机
+POST http://localhost:3000/miner/test/purchase
+Content-Type: application/json
+
+{
+    "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111113",
+    "logIndex": 0,
+    "buyer": "0x0000000000000000000000000000000000000001",
+    "minerId": "SPACE_500",
+    "price": "500000000000000000000",
+    "payValue": "500000000000000000000",
+    "expectedReward": "2500000000000000000000",
+    "nonce": "test-003"
+}
+
+
+### 查询资金记录
+GET http://localhost:3000/account/balance-logs?page=1&pageSize=20
+Authorization: Bearer {{jwtToken}}
+
+
+### 查询矿机信息
+GET http://localhost:3000/miner
+Authorization: Bearer {{jwtToken}}
+
+
+### 提交交易Hahs
+POST http://localhost:3000/market/hash
+Content-Type: application/json
+
+{
+    "hash": "0x02de2813b34794c6a038ad6d9b8c26ff5a0961af1ed9fdff9da966e95dcada77"
+}
