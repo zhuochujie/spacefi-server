@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, In, Not, Repository } from 'typeorm';
 import { Account } from 'src/account/entities/account.entity';
 import { AccountBalanceLog, AccountBalanceLogToken, AccountBalanceLogType } from 'src/account/entities/account-balance-log.entity';
@@ -19,6 +19,9 @@ import { MinerPurchaseSignature } from 'src/miner/entities/miner-purchase-signat
 import { MinerPurchaseSignatureStatus } from 'src/miner/enums/miner-purchase-signature-status.enum';
 import { Order, OrderSide, OrderStatus } from 'src/market/entities/order.entity';
 import { MarketTrade } from 'src/market/entities/market-trade.entity';
+import { Miner } from 'src/miner/entities/miner.entity';
+import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
+import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 
 @Injectable()
 export class AdminService {
@@ -190,6 +193,91 @@ export class AdminService {
       config.value = dto.value;
       return configRepository.save(config);
     });
+  }
+
+  async getMiners() {
+    const minerRepository = this.dataSource.getRepository(Miner);
+
+    return minerRepository.find({
+      order: {
+        price: 'ASC',
+        id: 'ASC',
+      },
+    });
+  }
+
+  async createMiner(dto: AdminCreateMinerDto) {
+    const minerRepository = this.dataSource.getRepository(Miner);
+    const existingMiner = await minerRepository.findOne({
+      where: [
+        { id: dto.id },
+        { name: dto.name },
+      ],
+    });
+    if (existingMiner) {
+      throw new ConflictException('MINER_ALREADY_EXISTS');
+    }
+
+    return minerRepository.save(
+      minerRepository.create({
+        id: dto.id,
+        name: dto.name,
+        price: dto.price,
+        expectedReward: dto.expectedReward,
+        remainingQuantity: dto.remainingQuantity,
+        desc: dto.desc,
+        isPurchasable: dto.isPurchasable ?? false,
+      }),
+    );
+  }
+
+  async updateMiner(minerId: string, dto: AdminUpdateMinerDto) {
+    if (
+      dto.name === undefined &&
+      dto.price === undefined &&
+      dto.expectedReward === undefined &&
+      dto.remainingQuantity === undefined &&
+      dto.desc === undefined &&
+      dto.isPurchasable === undefined
+    ) {
+      throw new BadRequestException('INVALID_UPDATE_FIELDS');
+    }
+
+    const minerRepository = this.dataSource.getRepository(Miner);
+    const miner = await minerRepository.findOne({ where: { id: minerId } });
+    if (!miner) {
+      throw new NotFoundException('MINER_NOT_FOUND');
+    }
+
+    if (dto.name !== undefined && dto.name !== miner.name) {
+      const existingMiner = await minerRepository.findOne({
+        where: {
+          name: dto.name,
+          id: Not(miner.id),
+        },
+      });
+      if (existingMiner) {
+        throw new ConflictException('MINER_ALREADY_EXISTS');
+      }
+      miner.name = dto.name;
+    }
+    if (dto.price !== undefined) {
+      miner.price = dto.price;
+    }
+    if (dto.expectedReward !== undefined) {
+      miner.expectedReward = dto.expectedReward;
+    }
+    if (dto.remainingQuantity !== undefined) {
+      miner.remainingQuantity = dto.remainingQuantity;
+    }
+    if (dto.desc !== undefined) {
+      miner.desc = dto.desc;
+    }
+    if (dto.isPurchasable !== undefined) {
+      miner.isPurchasable = dto.isPurchasable;
+    }
+
+    return minerRepository.save(miner);
   }
 
   async getTodayMinerPurchaseSpace() {

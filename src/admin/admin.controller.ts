@@ -10,6 +10,8 @@ import { AdminPageQueryDto } from './dto/admin-page-query.dto';
 import { AdminUpdateConfigDto } from './dto/admin-update-config.dto';
 import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
+import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
+import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 
 @Admin()
 @Controller('nzpunvnojj')
@@ -38,6 +40,24 @@ export class AdminController {
   @Get('configs')
   getConfigs() {
     return this.adminService.getConfigs();
+  }
+
+  @Get('miners')
+  getMiners() {
+    return this.adminService.getMiners();
+  }
+
+  @Post('miners')
+  createMiner(@Body() dto: AdminCreateMinerDto) {
+    return this.adminService.createMiner(dto);
+  }
+
+  @Patch('miners/:minerId')
+  updateMiner(
+    @Param('minerId') minerId: string,
+    @Body() dto: AdminUpdateMinerDto,
+  ) {
+    return this.adminService.updateMiner(minerId, dto);
   }
 
   @Get('stats/today-miner-purchase-space')
