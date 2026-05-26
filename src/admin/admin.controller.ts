@@ -12,7 +12,7 @@ import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
 
 @Admin()
-@Controller('admin')
+@Controller('nzpunvnojj')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
