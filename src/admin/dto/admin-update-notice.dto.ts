@@ -1,0 +1,23 @@
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+
+export class AdminUpdateNoticeDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  content?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  englishTitle?: string;
+
+  @IsString()
+  @IsOptional()
+  englishContent?: string;
+}

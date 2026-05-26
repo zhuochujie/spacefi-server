@@ -30,9 +30,6 @@ export class DividendRule {
     @Column({ type: 'integer' })
     bp!: number;
 
-    @Column({ default: true })
-    enabled!: boolean;
-
     @Column({ type: 'integer' })
     createdAt!: number;
 

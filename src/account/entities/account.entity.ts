@@ -28,6 +28,9 @@ export class Account {
   @Column({ default: 0 })
   nodeLevel!: number;
 
+  @Column({ default: false })
+  isAdmin!: boolean;
+
   @Column({ type: 'integer', default: 0 })
   createdAt!: number;
 

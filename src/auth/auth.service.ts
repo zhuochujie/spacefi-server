@@ -38,7 +38,7 @@ export class AuthService {
             throw new UnauthorizedException('INVALID_SIGNATURE');
         }
 
-        const payload = { sub: account.id, address: account.address };
+        const payload = { sub: account.id, address: account.address, isAdmin: account.isAdmin };
         return {
             access_token: await this.jwtService.signAsync(payload),
         };
@@ -63,7 +63,7 @@ export class AuthService {
 
         const account = await this.accountService.createAccount(address, refCode);
 
-        const payload = { sub: account.id, address: account.address };
+        const payload = { sub: account.id, address: account.address, isAdmin: account.isAdmin };
         return {
             access_token: await this.jwtService.signAsync(payload),
         };
@@ -89,6 +89,7 @@ export class AuthService {
             refCode: account.refCode,
             vipLevel: Math.max(account.vipLevel, account.manualVipLevel),
             nodeLevel: account.nodeLevel,
+            isAdmin: account.isAdmin,
             balance: account.balance,
             usdtBalance: account.usdtBalance,
             createdAt: account.createdAt,

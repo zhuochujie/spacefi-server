@@ -17,6 +17,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule } from './config/config.module';
 import { NoticeModule } from './notice/notice.module';
 import { optionalBoolEnv, requiredEnv, requiredIntEnv } from './common/env.util';
+import { AdminGuard } from './auth/admin.guard';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -50,7 +52,8 @@ import { optionalBoolEnv, requiredEnv, requiredIntEnv } from './common/env.util'
     MinerModule,
     MarketModule,
     ConfigModule,
-    NoticeModule
+    NoticeModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [
@@ -58,6 +61,10 @@ import { optionalBoolEnv, requiredEnv, requiredIntEnv } from './common/env.util'
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: AdminGuard,
     },
   ],
 })
