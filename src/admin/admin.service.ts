@@ -637,6 +637,7 @@ export class AdminService {
       ConfigService.CYCLE_REWARD_BP_KEY,
       ConfigService.USDT_DIVIDEND_FEE_BP_KEY,
       ConfigService.TEAM_REWARD_BP_KEY,
+      ConfigService.FREE_MINER_CYCLE_REWARD_BP_KEY,
     ]);
 
     if (bpKeys.has(key) && numericValue > 10000n) {
@@ -659,16 +660,36 @@ export class AdminService {
     }
 
     const positiveIntegerKeys = new Set([
+      ConfigService.INIT_CYCLE_SECONDS_KEY,
       ConfigService.MAX_CYCLE_SECONDS_KEY,
       ConfigService.MINER_EXTENDED_PER_CYCLE_SECONDS_KEY,
-      ConfigService.GLOBAL_EXTENDED_PER_CYCLE_SECONDS_KEY,
-      ConfigService.MAX_GLOBAL_EXTENDED_CYCLES_KEY,
       ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY,
     ]);
 
     if (positiveIntegerKeys.has(key)) {
       const numberValue = Number(value);
       if (!Number.isSafeInteger(numberValue) || numberValue <= 0) {
+        throw new BadRequestException('INVALID_CONFIG_FORMAT');
+      }
+    }
+
+    if (
+      key === ConfigService.SPACE_USDT_PRICE_WEI_KEY &&
+      numericValue <= 0n
+    ) {
+      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
+
+    if (
+      key === ConfigService.FREE_MINER_PRICE_WEI_KEY &&
+      numericValue <= 0n
+    ) {
+      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
+
+    if (key === ConfigService.MINER_REWARD_START_AT_KEY) {
+      const numberValue = Number(value);
+      if (!Number.isSafeInteger(numberValue) || numberValue < 0) {
         throw new BadRequestException('INVALID_CONFIG_FORMAT');
       }
     }

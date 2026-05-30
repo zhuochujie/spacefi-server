@@ -1183,6 +1183,16 @@ export const miningAbi = [
                 "name": "usdtFeeReceiverAddr",
                 "type": "address",
                 "internalType": "address"
+            },
+            {
+                "name": "usdtPurchaseSpaceLimit_",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "freeMinerSpaceAmount_",
+                "type": "uint256",
+                "internalType": "uint256"
             }
         ],
         "stateMutability": "nonpayable"
@@ -1227,31 +1237,70 @@ export const miningAbi = [
     },
     {
         "type": "function",
+        "name": "claimFreeMiner",
+        "inputs": [],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "claimedFreeMiners",
+        "inputs": [
+            {
+                "name": "account",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "claimed",
+                "type": "bool",
+                "internalType": "bool"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
         "name": "dividend",
         "inputs": [
             {
-                "name": "vipFeeVaultSpaceBalance",
+                "name": "vipFeeVaultSpaceAmount",
                 "type": "uint256",
                 "internalType": "uint256"
             },
             {
-                "name": "nodeFeeVaultSpaceBalance",
+                "name": "nodeFeeVaultSpaceAmount",
                 "type": "uint256",
                 "internalType": "uint256"
             },
             {
-                "name": "nodeFeeVaultUsdtBalanceToMiner",
+                "name": "nodeFeeVaultUsdtAmountToMiner",
                 "type": "uint256",
                 "internalType": "uint256"
             },
             {
-                "name": "nodeFeeVaultUsdtBalanceToUsdtFeeReceiver",
+                "name": "nodeFeeVaultUsdtAmountToUsdtFeeReceiver",
                 "type": "uint256",
                 "internalType": "uint256"
             }
         ],
         "outputs": [],
         "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "freeMinerSpaceAmount",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "stateMutability": "view"
     },
     {
         "type": "function",
@@ -1325,6 +1374,11 @@ export const miningAbi = [
                 "name": "expectedReward",
                 "type": "uint256",
                 "internalType": "uint256"
+            },
+            {
+                "name": "paymentToken",
+                "type": "uint8",
+                "internalType": "enum Mining.PaymentToken"
             },
             {
                 "name": "nonce",
@@ -1431,6 +1485,11 @@ export const miningAbi = [
                 "internalType": "uint256"
             },
             {
+                "name": "paymentToken",
+                "type": "uint8",
+                "internalType": "enum Mining.PaymentToken"
+            },
+            {
                 "name": "nonce",
                 "type": "string",
                 "internalType": "string"
@@ -1489,6 +1548,19 @@ export const miningAbi = [
     },
     {
         "type": "function",
+        "name": "setUsdtFeeReceiver",
+        "inputs": [
+            {
+                "name": "newUsdtFeeReceiver",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
         "name": "signer",
         "inputs": [],
         "outputs": [
@@ -1535,6 +1607,32 @@ export const miningAbi = [
                 "name": "",
                 "type": "address",
                 "internalType": "address"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "usdtPurchaseSpaceLimit",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
+        "name": "usdtPurchasedSpaceAmount",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256",
+                "internalType": "uint256"
             }
         ],
         "stateMutability": "view"
@@ -1665,6 +1763,37 @@ export const miningAbi = [
     },
     {
         "type": "event",
+        "name": "DividendDistributed",
+        "inputs": [
+            {
+                "name": "vipFeeVaultSpaceAmount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "nodeFeeVaultSpaceAmount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "nodeFeeVaultUsdtAmountToMiner",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "nodeFeeVaultUsdtAmountToUsdtFeeReceiver",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
         "name": "FeeReceiversUpdated",
         "inputs": [
             {
@@ -1696,6 +1825,25 @@ export const miningAbi = [
     },
     {
         "type": "event",
+        "name": "FreeMinerClaimed",
+        "inputs": [
+            {
+                "name": "account",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "spaceAmount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
         "name": "MinerPurchased",
         "inputs": [
             {
@@ -1721,6 +1869,12 @@ export const miningAbi = [
                 "type": "uint256",
                 "indexed": false,
                 "internalType": "uint256"
+            },
+            {
+                "name": "paymentToken",
+                "type": "uint8",
+                "indexed": false,
+                "internalType": "enum Mining.PaymentToken"
             },
             {
                 "name": "expectedReward",
@@ -1814,6 +1968,25 @@ export const miningAbi = [
     },
     {
         "type": "event",
+        "name": "UsdtFeeReceiverUpdated",
+        "inputs": [
+            {
+                "name": "oldUsdtFeeReceiver",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            },
+            {
+                "name": "newUsdtFeeReceiver",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
         "name": "UsdtWithdrawn",
         "inputs": [
             {
@@ -1877,6 +2050,11 @@ export const miningAbi = [
     },
     {
         "type": "error",
+        "name": "FreeMinerAlreadyClaimed",
+        "inputs": []
+    },
+    {
+        "type": "error",
         "name": "InvalidFee",
         "inputs": []
     },
@@ -1937,6 +2115,11 @@ export const miningAbi = [
                 "internalType": "address"
             }
         ]
+    },
+    {
+        "type": "error",
+        "name": "UsdtPurchaseSpaceLimitExceeded",
+        "inputs": []
     }
 ] as const satisfies Abi;
 

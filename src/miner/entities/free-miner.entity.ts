@@ -1,20 +1,19 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { Miner } from './miner.entity';
 import { Account } from 'src/account/entities/account.entity';
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
-@Index(['accountId', 'minerId'], { unique: true })
+@Index(['accountId'], { unique: true })
+@Index(['hash'], { unique: true })
 @Index(['lastRewardAt'])
-@Index(['accountId', 'createdAt', 'id'])
-export class AccountMiner {
+export class FreeMiner {
     @PrimaryGeneratedColumn()
     id!: number;
 
     @Column()
-    minerId!: string;
-
-    @Column()
     accountId!: number;
+
+    @Column({ type: 'numeric', precision: 28, scale: 0 })
+    price!: string;
 
     // 预期奖励
     @Column({ type: 'numeric', precision: 28, scale: 0 })
@@ -23,6 +22,10 @@ export class AccountMiner {
     // 已产出奖励
     @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
     producedReward!: string;
+
+    // 已提取奖励
+    @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+    claimedReward!: string;
 
     @Column({ type: 'integer' })
     cycle!: number;
@@ -42,13 +45,12 @@ export class AccountMiner {
     @Column({ type: 'integer' })
     createdAt!: number;
 
-    @ManyToOne(() => Miner, {
-        onDelete: 'RESTRICT',
-    })
-    miner!: Miner;
-
     @ManyToOne(() => Account, {
         onDelete: 'CASCADE',
     })
     account!: Account;
+
+    @Column({ length: 66 })
+    hash!: string;
+
 }

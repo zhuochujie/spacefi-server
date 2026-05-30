@@ -9,10 +9,11 @@ import { MinerPurchaseSignature } from './entities/miner-purchase-signature.enti
 import { BullModule } from '@nestjs/bullmq';
 import { MinerProcessor } from './miner-processor';
 import { ConfigModule } from 'src/config/config.module';
+import { FreeMiner } from './entities/free-miner.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Miner, AccountMiner, MinerPurchaseSignature]),
+    TypeOrmModule.forFeature([Miner, AccountMiner, MinerPurchaseSignature, FreeMiner]),
     Web3Module,
     BullModule.registerQueue({
       name: 'miner-queue',

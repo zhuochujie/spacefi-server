@@ -16,6 +16,7 @@ export enum AccountBalanceLogType {
   WithdrawRefund = 'withdraw_refund',
   VipDividend = 'vip_dividend',
   NodeDividend = 'node_dividend',
+  FreeMinerClaim = 'free_miner_claim',
 }
 
 export enum AccountBalanceLogToken {

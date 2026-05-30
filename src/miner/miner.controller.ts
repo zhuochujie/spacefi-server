@@ -5,6 +5,7 @@ import { PurchaseMinerDto } from './dto/purchase-miner.dto';
 import { Public } from 'src/common/decorators/public.decorator';
 import { SubmitNonceDto } from './dto/submit-nonce.dto';
 import { NonceParamDto } from './dto/nonce-param.dto';
+import { SubmitFreeMinerHashDto } from './dto/submit-free-miner-hash.dto';
 
 @Controller('miner')
 export class MinerController {
@@ -26,6 +27,18 @@ export class MinerController {
   }
 
   @Public()
+  @Get('space-usdt-price')
+  getSpaceUsdtPrice() {
+    return this.minerService.getSpaceUsdtPrice();
+  }
+
+  @Public()
+  @Get('reward-start-at')
+  getMinerRewardStartAt() {
+    return this.minerService.getMinerRewardStartAt();
+  }
+
+  @Public()
   @Post('nonce')
   submitNonce(
     @Body() submitNonceDto: SubmitNonceDto,
@@ -41,6 +54,33 @@ export class MinerController {
   @Post('purchase')
   async purchaseMiner(@CurrentAccount() account: JwtAccount, @Body() purchaseMinerDto: PurchaseMinerDto) {
     return this.minerService.generatePurchaseMinerSignature(account.sub, purchaseMinerDto.minerId, purchaseMinerDto.method);
+  }
+
+  @Post('free/hash')
+  submitFreeMinerHash(
+    @CurrentAccount() account: JwtAccount,
+    @Body() submitFreeMinerHashDto: SubmitFreeMinerHashDto,
+  ) {
+    return this.minerService.submitFreeMinerHash(
+      account.sub,
+      account.address,
+      submitFreeMinerHashDto.hash,
+    );
+  }
+
+  @Get('free/my')
+  getMyFreeMiner(@CurrentAccount() account: JwtAccount) {
+    return this.minerService.getMyFreeMiner(account.sub);
+  }
+
+  @Post('free/claim-reward')
+  claimFreeMinerReward(@CurrentAccount() account: JwtAccount) {
+    return this.minerService.claimFreeMinerReward(account.sub);
+  }
+
+  @Get('free/hash/:hash')
+  getFreeMinerHashStatus(@Param() params: SubmitFreeMinerHashDto) {
+    return this.minerService.getFreeMinerHashStatus(params.hash);
   }
   
 }

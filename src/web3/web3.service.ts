@@ -4,7 +4,8 @@ import { decodeEventLog, PublicClient, verifyMessage, createPublicClient, http, 
 import { market, mining, node, nodeFeeVault, signerPrivateKey, spaceToken, usdtToken, vipFeeVault } from './constants';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ConfigService } from 'src/config/config.service';
-import { bsc } from 'viem/chains';
+import { bsc } from './bsc';
+// import { bsc } from 'viem/chains';
 
 @Injectable()
 export class Web3Service {
@@ -40,6 +41,7 @@ export class Web3Service {
         values
       )
     )
+    
     const signature = await account.signMessage({ message: { raw: messageHash } })
     return signature;
   }
@@ -125,6 +127,7 @@ export class Web3Service {
     price: string,
     payValue: string,
     expectedReward: string,
+    paymentToken: number,
     nonce: string,
     deadline: number
   ) {
@@ -138,11 +141,12 @@ export class Web3Service {
       price,
       payValue,
       expectedReward,
+      paymentToken,
       keccak256(stringToBytes(nonce)),
       deadline
     ];
     const signature = await this.sign(
-      ['bytes32', 'address', 'uint256', 'address', 'bytes32', 'uint256', 'uint256', 'uint256', 'bytes32', 'uint256'],
+      ['bytes32', 'address', 'uint256', 'address', 'bytes32', 'uint256', 'uint256', 'uint256', 'uint8', 'bytes32', 'uint256'],
       value
     );
     return { value, signature }
@@ -333,6 +337,46 @@ export class Web3Service {
       return logs;
     }, 3, 3000, () => {
       onFail(hash);
+    });
+  }
+
+  async getFreeMinerClaimEvent(hash: string) {
+    return this.withRetry(async () => {
+      const receipt = await this.publicClient.getTransactionReceipt({
+        hash: hash as `0x${string}`,
+      });
+
+      if (receipt.status !== 'success') {
+        throw new CustomException('FREE_MINER_TX_FAILED', 400);
+      }
+
+      const miningLogs = receipt.logs.filter(
+        (log) => log.address.toLowerCase() === mining.address.toLowerCase(),
+      );
+
+      const logs = parseEventLogs({
+        abi: mining.abi,
+        logs: miningLogs,
+        eventName: ['FreeMinerClaimed'],
+      });
+
+      if (logs.length === 0) {
+        this.logger.warn('未找到免费矿机领取事件');
+        throw new CustomException('FREE_MINER_EVENT_NOT_FOUND', 400);
+      }
+
+      const blockNumber = logs[0].blockNumber;
+      if (blockNumber === null) {
+        throw new CustomException('FREE_MINER_EVENT_NOT_FOUND', 400);
+      }
+
+      const blockTimestamp = Number((await this.publicClient.getBlock({ blockNumber })).timestamp);
+
+      return {
+        account: logs[0].args.account.toLowerCase(),
+        spaceAmount: logs[0].args.spaceAmount.toString(),
+        blockTimestamp,
+      };
     });
   }
 }

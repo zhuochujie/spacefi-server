@@ -1,6 +1,7 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { PurchaseMethod } from '../enums/purchase-method.enum';
 import { MinerPurchaseSignatureStatus } from '../enums/miner-purchase-signature-status.enum';
+import { PaymentToken } from '../enums/payment-token.enum';
 
 @Entity()
 @Index(['accountId', 'minerId'])
@@ -36,6 +37,9 @@ export class MinerPurchaseSignature {
         enum: PurchaseMethod,
     })
     method!: PurchaseMethod;
+
+    @Column({ type: 'integer', default: PaymentToken.Space })
+    paymentToken!: PaymentToken;
 
     @Column({ unique: true })
     nonce!: string;
