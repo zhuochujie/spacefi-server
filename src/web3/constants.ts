@@ -1291,6 +1291,19 @@ export const miningAbi = [
     },
     {
         "type": "function",
+        "name": "freeMinerClaimEnabled",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool",
+                "internalType": "bool"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
         "name": "freeMinerSpaceAmount",
         "inputs": [],
         "outputs": [
@@ -1528,6 +1541,19 @@ export const miningAbi = [
                 "name": "newNodeFeeReceiver",
                 "type": "address",
                 "internalType": "address"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "setFreeMinerClaimEnabled",
+        "inputs": [
+            {
+                "name": "enabled",
+                "type": "bool",
+                "internalType": "bool"
             }
         ],
         "outputs": [],
@@ -1825,6 +1851,19 @@ export const miningAbi = [
     },
     {
         "type": "event",
+        "name": "FreeMinerClaimEnabledUpdated",
+        "inputs": [
+            {
+                "name": "enabled",
+                "type": "bool",
+                "indexed": false,
+                "internalType": "bool"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
         "name": "FreeMinerClaimed",
         "inputs": [
             {
@@ -2051,6 +2090,11 @@ export const miningAbi = [
     {
         "type": "error",
         "name": "FreeMinerAlreadyClaimed",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "FreeMinerClaimDisabled",
         "inputs": []
     },
     {
