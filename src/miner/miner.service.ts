@@ -670,8 +670,8 @@ export class MinerService {
     }
 
 
-    // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { timeZone: 'Asia/Shanghai' })
-    @Cron(CronExpression.EVERY_MINUTE, { timeZone: 'Asia/Shanghai' })
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { timeZone: 'Asia/Shanghai' })
+    // @Cron(CronExpression.EVERY_MINUTE, { timeZone: 'Asia/Shanghai' })
     async resetCycleAndDistributeReward() {
         const currentTimestamp = Math.floor(Date.now() / 1000);
         await this.dataSource.transaction(async manager => {

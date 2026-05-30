@@ -18,4 +18,22 @@ export class AdminCreateNoticeDto {
   @IsString()
   @IsOptional()
   englishContent?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  thaiTitle?: string;
+
+  @IsString()
+  @IsOptional()
+  thaiContent?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  koreanTitle?: string;
+
+  @IsString()
+  @IsOptional()
+  koreanContent?: string;
 }

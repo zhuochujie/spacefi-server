@@ -384,6 +384,10 @@ export class AdminService {
         content: dto.content,
         englishTitle: dto.englishTitle,
         englishContent: dto.englishContent,
+        thaiTitle: dto.thaiTitle,
+        thaiContent: dto.thaiContent,
+        koreanTitle: dto.koreanTitle,
+        koreanContent: dto.koreanContent,
         createTime: currentTimestamp,
       }),
     );
@@ -394,7 +398,11 @@ export class AdminService {
       dto.title === undefined &&
       dto.content === undefined &&
       dto.englishTitle === undefined &&
-      dto.englishContent === undefined
+      dto.englishContent === undefined &&
+      dto.thaiTitle === undefined &&
+      dto.thaiContent === undefined &&
+      dto.koreanTitle === undefined &&
+      dto.koreanContent === undefined
     ) {
       throw new BadRequestException('INVALID_UPDATE_FIELDS');
     }
@@ -416,6 +424,18 @@ export class AdminService {
     }
     if (dto.englishContent !== undefined) {
       notice.englishContent = dto.englishContent;
+    }
+    if (dto.thaiTitle !== undefined) {
+      notice.thaiTitle = dto.thaiTitle;
+    }
+    if (dto.thaiContent !== undefined) {
+      notice.thaiContent = dto.thaiContent;
+    }
+    if (dto.koreanTitle !== undefined) {
+      notice.koreanTitle = dto.koreanTitle;
+    }
+    if (dto.koreanContent !== undefined) {
+      notice.koreanContent = dto.koreanContent;
     }
 
     return noticeRepository.save(notice);

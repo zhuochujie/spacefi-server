@@ -28,6 +28,32 @@ export class Notice {
         nullable: true
     })
     englishContent!: string;
+
+    @Column({
+        type: 'varchar',
+        length: 200,
+        nullable: true
+    })
+    thaiTitle!: string;
+
+    @Column({
+        type: 'text',
+        nullable: true
+    })
+    thaiContent!: string;
+
+    @Column({
+        type: 'varchar',
+        length: 200,
+        nullable: true
+    })
+    koreanTitle!: string;
+
+    @Column({
+        type: 'text',
+        nullable: true
+    })
+    koreanContent!: string;
     
     @Column({ type: 'integer' })
     createTime!: number
