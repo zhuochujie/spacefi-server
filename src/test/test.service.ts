@@ -178,6 +178,84 @@ export class TestService {
     });
   }
 
+  async getCommissionLevelTestMiners() {
+    const result = await this.dataSource.query<
+      {
+        midThreshold: string;
+        highThreshold: string;
+        lowMinerId: string | null;
+        midMinerId: string | null;
+        highMinerId: string | null;
+      }[]
+    >(`
+      WITH thresholds AS (
+        SELECT
+          MAX(value::numeric) FILTER (
+            WHERE key = 'COMMISSION_MID_MINER_PRICE_WEI'
+          ) AS mid_threshold,
+          MAX(value::numeric) FILTER (
+            WHERE key = 'COMMISSION_HIGH_MINER_PRICE_WEI'
+          ) AS high_threshold
+        FROM config
+        WHERE key IN (
+          'COMMISSION_MID_MINER_PRICE_WEI',
+          'COMMISSION_HIGH_MINER_PRICE_WEI'
+        )
+      )
+      SELECT
+        thresholds.mid_threshold::text AS "midThreshold",
+        thresholds.high_threshold::text AS "highThreshold",
+        (
+          SELECT id
+          FROM miner
+          WHERE price < thresholds.mid_threshold
+          ORDER BY price DESC
+          LIMIT 1
+        ) AS "lowMinerId",
+        (
+          SELECT id
+          FROM miner
+          WHERE price >= thresholds.mid_threshold
+            AND price < thresholds.high_threshold
+          ORDER BY price ASC
+          LIMIT 1
+        ) AS "midMinerId",
+        (
+          SELECT id
+          FROM miner
+          WHERE price >= thresholds.high_threshold
+          ORDER BY price ASC
+          LIMIT 1
+        ) AS "highMinerId"
+      FROM thresholds
+    `);
+    const miners = result[0];
+
+    if (
+      !miners?.midThreshold ||
+      !miners.highThreshold ||
+      !miners.lowMinerId ||
+      !miners.midMinerId ||
+      !miners.highMinerId
+    ) {
+      throw new NotFoundException('COMMISSION_LEVEL_TEST_MINERS_NOT_FOUND');
+    }
+
+    return miners;
+  }
+
+  async getCommissionLevel(accountId: number) {
+    const result = await this.dataSource.query<{ commissionLevel: number }[]>(
+      'SELECT compute_commission_level($1) AS "commissionLevel"',
+      [accountId],
+    );
+
+    return {
+      accountId,
+      commissionLevel: Number(result[0]?.commissionLevel ?? 0),
+    };
+  }
+
   private async generateUniqueRefCode(accountRepository: {
     findOne: (args: { where: { refCode: string } }) => Promise<Account | null>;
   }) {

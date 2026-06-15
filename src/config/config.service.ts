@@ -205,7 +205,7 @@ export class ConfigService {
       },
       {
         key: ConfigService.MINER_REWARD_START_AT_KEY,
-        value: '1782403200',
+        value: '1783530000',
         desc: '矿机奖励统一开始时间，秒级时间戳，0 表示立即开始；购买/领取时会写入矿机时间，不建议在已有矿机创建后修改，产矿开始后禁止修改',
         isAdminEditable: false,
       },
