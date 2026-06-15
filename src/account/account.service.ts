@@ -54,7 +54,7 @@ export class AccountService {
         createdAt: currentTimestamp,
       },
       {
-        address: '0x44e280e672298fc9b356726f0cdc9acb9706decc'.toLowerCase(),
+        address: '0x3b6752438d1c870d9c2306ebaf97e5af26ddf4ac'.toLowerCase(),
         refCode: 'O8JA83KI',
         nodeLevel: 4,
         createdAt: currentTimestamp,
