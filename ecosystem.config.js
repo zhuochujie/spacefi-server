@@ -29,7 +29,7 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        ADMIN_API_PORT: 3001,
+        ADMIN_API_PORT: 3002,
       },
       error_file: './logs/admin-api-error.log',
       out_file: './logs/admin-api-out.log',
