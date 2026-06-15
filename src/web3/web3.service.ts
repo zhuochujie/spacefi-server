@@ -4,7 +4,7 @@ import { PublicClient, verifyMessage, createPublicClient, http, parseEventLogs, 
 import { market, mining, node, nodeFeeVault, signerPrivateKey, spaceToken, usdtToken, vipFeeVault } from './constants';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ConfigService } from 'src/config/config.service';
-import { bscTestnet as bsc } from './bsc';
+import { bsc } from './bsc';
 
 @Injectable()
 export class Web3Service {
