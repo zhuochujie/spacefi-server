@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
-    "@nestjs/cache-manager": "^3.1.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
@@ -37,9 +36,9 @@
     "@nestjs/typeorm": "^11.0.1",
     "argon2": "^0.44.0",
     "bullmq": "^5.76.3",
-    "cache-manager": "^7.2.8",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "ioredis": "^5.11.1",
     "pg": "^8.20.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

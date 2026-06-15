@@ -34,8 +34,7 @@ export class AuthService {
     }
 
     // 验证签名
-    const nonce = await this.nonceService.getNonce(address);
-    await this.nonceService.deleteNonce(address);
+    const nonce = await this.nonceService.consumeNonce(address);
     if (!nonce) {
       this.logger.log('Nonce不存在');
       throw new UnauthorizedException('NONCE_NOT_FOUND');
@@ -60,8 +59,7 @@ export class AuthService {
   }
 
   async register(address: string, refCode: string, signature: string) {
-    const nonce = await this.nonceService.getNonce(address);
-    await this.nonceService.deleteNonce(address);
+    const nonce = await this.nonceService.consumeNonce(address);
     if (!nonce) {
       this.logger.log('Nonce不存在');
       throw new NotFoundException('NONCE_NOT_FOUND');

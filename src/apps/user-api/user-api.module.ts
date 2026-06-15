@@ -6,7 +6,6 @@ import { AppController } from 'src/app.controller';
 import { AppService } from 'src/app.service';
 import { AuthModule } from 'src/auth/auth.module';
 import { AuthGuard } from 'src/auth/auth.guard';
-import { GlobalCacheModule } from 'src/cache/cache.module';
 import { requiredEnv, requiredIntEnv } from 'src/common/env.util';
 import { ConfigModule } from 'src/config/config.module';
 import { DatabaseModule } from 'src/infrastructure/database.module';
@@ -29,7 +28,6 @@ import { UserDataInitializerService } from './user-data-initializer.service';
         password: process.env.REDIS_PASSWORD || undefined,
       },
     }),
-    GlobalCacheModule,
     AuthModule,
     AccountModule,
     NonceModule,
