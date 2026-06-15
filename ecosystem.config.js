@@ -11,7 +11,6 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        USER_API_PORT: 3000,
       },
       error_file: './logs/user-api-error.log',
       out_file: './logs/user-api-out.log',
@@ -29,7 +28,6 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        ADMIN_API_PORT: 3002,
       },
       error_file: './logs/admin-api-error.log',
       out_file: './logs/admin-api-out.log',
