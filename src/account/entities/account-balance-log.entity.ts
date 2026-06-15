@@ -27,6 +27,7 @@ export enum AccountBalanceLogToken {
 @Entity()
 @Index(['accountId', 'createdAt'])
 @Index(['accountId', 'type', 'createdAt'])
+@Index(['type', 'createdAt'])
 export class AccountBalanceLog {
   @PrimaryGeneratedColumn()
   id!: number;

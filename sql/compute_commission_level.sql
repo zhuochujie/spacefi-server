@@ -4,35 +4,51 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   total_direct_miner_count integer;
+  mid_direct_miner_count integer;
   high_direct_miner_count integer;
+  mid_miner_price_threshold numeric;
   high_miner_price_threshold numeric;
 BEGIN
-  SELECT value::numeric
-  INTO high_miner_price_threshold
+  SELECT
+    MAX(value::numeric) FILTER (
+      WHERE key = 'COMMISSION_MID_MINER_PRICE_WEI'
+    ),
+    MAX(value::numeric) FILTER (
+      WHERE key = 'COMMISSION_HIGH_MINER_PRICE_WEI'
+    )
+  INTO mid_miner_price_threshold, high_miner_price_threshold
   FROM config
-  WHERE key = 'COMMISSION_HIGH_MINER_PRICE_WEI';
+  WHERE key IN (
+    'COMMISSION_MID_MINER_PRICE_WEI',
+    'COMMISSION_HIGH_MINER_PRICE_WEI'
+  );
+
+  IF mid_miner_price_threshold IS NULL THEN
+    RAISE EXCEPTION 'CONFIG_NOT_FOUND: COMMISSION_MID_MINER_PRICE_WEI';
+  END IF;
 
   IF high_miner_price_threshold IS NULL THEN
     RAISE EXCEPTION 'CONFIG_NOT_FOUND: COMMISSION_HIGH_MINER_PRICE_WEI';
   END IF;
 
-  -- 直推用户拥有的所有矿机数量
-  SELECT COUNT(*)
-  INTO total_direct_miner_count
-  FROM account_relation ar
-  JOIN account_miner am ON am.account_id = ar.subordinate_id
-  WHERE ar.superior_id = p_account_id
-    AND ar.level = 1;
+  IF mid_miner_price_threshold >= high_miner_price_threshold THEN
+    RAISE EXCEPTION 'INVALID_COMMISSION_PRICE_THRESHOLDS';
+  END IF;
 
-  -- 直推用户拥有的大于等于 3000 的矿机数量
-  SELECT COUNT(*)
-  INTO high_direct_miner_count
+  -- 按矿机台数统计直推用户拥有的所有、中价值和高价值矿机。
+  SELECT
+    COUNT(*),
+    COUNT(*) FILTER (WHERE m.price >= mid_miner_price_threshold),
+    COUNT(*) FILTER (WHERE m.price >= high_miner_price_threshold)
+  INTO
+    total_direct_miner_count,
+    mid_direct_miner_count,
+    high_direct_miner_count
   FROM account_relation ar
   JOIN account_miner am ON am.account_id = ar.subordinate_id
   JOIN miner m ON m.id = am.miner_id
   WHERE ar.superior_id = p_account_id
-    AND ar.level = 1
-    AND m.price >= high_miner_price_threshold;
+    AND ar.level = 1;
 
   IF high_direct_miner_count >= 3 THEN
     RETURN 20;
@@ -40,8 +56,10 @@ BEGIN
     RETURN 15;
   ELSIF high_direct_miner_count >= 1 THEN
     RETURN 10;
-  ELSIF total_direct_miner_count >= 1 THEN
+  ELSIF mid_direct_miner_count >= 1 THEN
     RETURN 5;
+  ELSIF total_direct_miner_count >= 1 THEN
+    RETURN 1;
   ELSE
     RETURN 0;
   END IF;

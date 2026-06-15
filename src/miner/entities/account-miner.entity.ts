@@ -6,6 +6,12 @@ import { Account } from 'src/account/entities/account.entity';
 @Index(['accountId', 'minerId'], { unique: true })
 @Index(['lastRewardAt'])
 @Index(['accountId', 'createdAt', 'id'])
+@Index('idx_account_miner_active_reward', ['lastRewardAt'], {
+    where: '"produced_reward" < "expected_reward"',
+})
+@Index('idx_account_miner_active_account_order', ['accountId', 'createdAt', 'id'], {
+    where: '"produced_reward" < "expected_reward"',
+})
 export class AccountMiner {
     @PrimaryGeneratedColumn()
     id!: number;

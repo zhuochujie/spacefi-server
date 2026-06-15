@@ -1,5 +1,5 @@
-import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNumberString, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsNumberString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class AdminUpdateMinerDto {
   @IsString()
@@ -14,12 +14,6 @@ export class AdminUpdateMinerDto {
   @IsNumberString({ no_symbols: true })
   @IsOptional()
   expectedReward?: string;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @IsOptional()
-  remainingQuantity?: number;
 
   @IsString()
   @IsOptional()

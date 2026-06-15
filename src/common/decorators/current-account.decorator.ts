@@ -9,5 +9,10 @@ export const CurrentAccount = createParamDecorator(
 export interface JwtAccount {
   sub: number;
   address: string;
-  isAdmin?: boolean;
+}
+
+export interface AdminJwtAccount {
+  sub: number;
+  type: 'admin';
+  username: string;
 }

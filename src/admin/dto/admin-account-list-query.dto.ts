@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export enum AdminAccountSortBy {
   Id = 'id',
@@ -40,25 +40,6 @@ export class AdminAccountListQueryDto {
   @IsOptional()
   refCode?: string;
 
-  @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') {
-      return undefined;
-    }
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value === 'number') {
-      return value === 1;
-    }
-    if (typeof value === 'string') {
-      return ['true', '1', 'yes'].includes(value.toLowerCase());
-    }
-    return value;
-  })
-  @IsBoolean()
-  @IsOptional()
-  isAdmin?: boolean;
-
   @Type(() => Number)
   @IsInt()
   @IsOptional()
@@ -73,7 +54,9 @@ export class AdminAccountListQueryDto {
   @IsOptional()
   sortBy = AdminAccountSortBy.CreatedAt;
 
-  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsEnum(AdminSortOrder)
   @IsOptional()
   sortOrder = AdminSortOrder.Desc;

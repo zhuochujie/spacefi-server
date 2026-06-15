@@ -15,6 +15,14 @@ import { MarketTrade } from './entities/market-trade.entity';
 
     BullModule.registerQueue({
       name: 'market-queue',
+      defaultJobOptions: {
+        removeOnComplete: {
+          age: 2 * 60 * 60,
+        },
+        removeOnFail: {
+          age: 2 * 60 * 60,
+        },
+      },
     }),
     Web3Module
   ],

@@ -10,4 +10,7 @@ export class Config {
 
     @Column()
     desc!: string;
+
+    @Column({ default: false })
+    isAdminEditable!: boolean;
 }

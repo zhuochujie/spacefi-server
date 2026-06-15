@@ -13,7 +13,12 @@ team_account_count integer;
 team_reward_total numeric;
 lost_team_reward_total numeric;
 team_reward_bp numeric;
+commission_account_count integer;
 BEGIN
+
+IF NOT pg_try_advisory_xact_lock(hashtext('distribute_miner_rewards')) THEN
+    RAISE EXCEPTION 'DISTRIBUTE_MINER_REWARDS_ALREADY_RUNNING';
+END IF;
 
 current_timestamp_sec := EXTRACT(EPOCH FROM NOW())::integer;
 
@@ -64,6 +69,14 @@ INTO miner_account_count
 FROM tmp_account_miner_rewards;
 
 RAISE NOTICE '第2步：按账户汇总矿机奖励完成，获得矿机奖励的账户数量：%', miner_account_count;
+
+-- 先锁定本轮要更新余额的账户，避免提现/购买等并发余额变更插入到“写日志”和“更新余额”之间。
+PERFORM a.id
+FROM account a
+JOIN tmp_account_miner_rewards t ON t.account_id = a.id
+WHERE t.reward > 0
+ORDER BY a.id
+FOR UPDATE;
 
 -- 3. 写入矿机奖励资金明细：每台矿机一条
 INSERT INTO account_balance_log (
@@ -120,15 +133,39 @@ WHERE am.id = t.account_miner_id
 
 RAISE NOTICE '第5步：矿机 produced_reward 和 last_reward_at 更新完成，更新矿机数量：%', miner_count;
 
--- 6. 计算每个上级账户理论团队奖励
+-- 6. 先按上级去重计算佣金层级，避免在关系明细上重复调用 compute_commission_level。
+CREATE TEMP TABLE tmp_commission_levels ON COMMIT DROP AS
+SELECT
+    s.account_id,
+    compute_commission_level(s.account_id) AS commission_level
+FROM (
+    SELECT DISTINCT
+        ar.superior_id AS account_id
+    FROM tmp_miner_rewards t
+    JOIN account_relation ar ON ar.subordinate_id = t.account_id
+    WHERE t.reward > 0
+) s;
+
+CREATE INDEX idx_tmp_commission_levels_account
+ON tmp_commission_levels(account_id);
+
+SELECT COUNT(*)
+INTO commission_account_count
+FROM tmp_commission_levels
+WHERE commission_level > 0;
+
+RAISE NOTICE '第6步：佣金层级计算完成，有佣金层级的上级账户数量：%', commission_account_count;
+
+-- 7. 计算每个上级账户理论团队奖励
 CREATE TEMP TABLE tmp_raw_team_rewards ON COMMIT DROP AS
 SELECT
     ar.superior_id AS account_id,
-    SUM(t.reward * team_reward_bp / 10000) AS reward
+    SUM(FLOOR(t.reward * team_reward_bp / 10000)) AS reward
 FROM tmp_miner_rewards t
 JOIN account_relation ar ON ar.subordinate_id = t.account_id
+JOIN tmp_commission_levels cl ON cl.account_id = ar.superior_id
 WHERE t.reward > 0
-    AND ar.level <= compute_commission_level(ar.superior_id)
+    AND ar.level <= cl.commission_level
 GROUP BY ar.superior_id;
 
 SELECT
@@ -138,9 +175,9 @@ INTO raw_team_account_count, raw_team_reward_total
 FROM tmp_raw_team_rewards
 WHERE reward > 0;
 
-RAISE NOTICE '第6步：理论团队奖励计算完成，理论团队奖励账户数量：%，理论团队奖励总额：%', raw_team_account_count, raw_team_reward_total;
+RAISE NOTICE '第7步：理论团队奖励计算完成，理论团队奖励账户数量：%，理论团队奖励总额：%', raw_team_account_count, raw_team_reward_total;
 
--- 7. 将团队奖励按上级自己的矿机顺序分配到 produced_reward 额度
+-- 8. 将团队奖励按上级自己的矿机顺序分配到 produced_reward 额度
 CREATE TEMP TABLE tmp_team_reward_allocations ON COMMIT DROP AS
 WITH available_miners AS (
     SELECT
@@ -186,12 +223,12 @@ WHERE reward > 0;
 
 lost_team_reward_total := raw_team_reward_total - team_reward_total;
 
-RAISE NOTICE '第7步：团队奖励按矿机剩余额度分配完成，分配到的矿机数量：%，实际可发放团队奖励总额：%，超出额度未发放团队奖励总额：%',
+RAISE NOTICE '第8步：团队奖励按矿机剩余额度分配完成，分配到的矿机数量：%，实际可发放团队奖励总额：%，超出额度未发放团队奖励总额：%',
     team_allocation_count,
     team_reward_total,
     lost_team_reward_total;
 
--- 8. 汇总实际可发放团队奖励
+-- 9. 汇总实际可发放团队奖励
 CREATE TEMP TABLE tmp_account_team_rewards ON COMMIT DROP AS
 SELECT
     account_id,
@@ -203,9 +240,17 @@ SELECT COUNT(*)
 INTO team_account_count
 FROM tmp_account_team_rewards;
 
-RAISE NOTICE '第8步：实际团队奖励按账户汇总完成，获得团队奖励的账户数量：%', team_account_count;
+RAISE NOTICE '第9步：实际团队奖励按账户汇总完成，获得团队奖励的账户数量：%', team_account_count;
 
--- 9. 写入团队奖励资金明细：每个账户一条
+-- 团队奖励写日志前也锁定账户；已在矿机奖励阶段锁过的账户会继续持有锁到事务结束。
+PERFORM a.id
+FROM account a
+JOIN tmp_account_team_rewards t ON t.account_id = a.id
+WHERE t.reward > 0
+ORDER BY a.id
+FOR UPDATE;
+
+-- 10. 写入团队奖励资金明细：每个账户一条
 INSERT INTO account_balance_log (
     account_id,
     type,
@@ -227,25 +272,25 @@ FROM account a
 JOIN tmp_account_team_rewards t ON t.account_id = a.id
 WHERE t.reward > 0;
 
-RAISE NOTICE '第9步：团队奖励资金明细写入完成，写入条数：%', team_account_count;
+RAISE NOTICE '第10步：团队奖励资金明细写入完成，写入条数：%', team_account_count;
 
--- 10. 更新账户余额：团队奖励
+-- 11. 更新账户余额：团队奖励
 UPDATE account a
 SET balance = a.balance + t.reward
 FROM tmp_account_team_rewards t
 WHERE a.id = t.account_id
     AND t.reward > 0;
 
-RAISE NOTICE '第10步：账户余额更新完成，团队奖励总额：%', team_reward_total;
+RAISE NOTICE '第11步：账户余额更新完成，团队奖励总额：%', team_reward_total;
 
--- 11. 团队奖励也增加上级自己的矿机 produced_reward
+-- 12. 团队奖励也增加上级自己的矿机 produced_reward
 UPDATE account_miner am
 SET produced_reward = am.produced_reward + t.reward
 FROM tmp_team_reward_allocations t
 WHERE am.id = t.account_miner_id
     AND t.reward > 0;
 
-RAISE NOTICE '第11步：团队奖励已增加到上级矿机 produced_reward，更新矿机数量：%', team_allocation_count;
+RAISE NOTICE '第12步：团队奖励已增加到上级矿机 produced_reward，更新矿机数量：%', team_allocation_count;
 RAISE NOTICE '奖励发放完成，矿机奖励总额：%，团队奖励实际发放总额：%，团队奖励未发放总额：%',
     miner_reward_total,
     team_reward_total,

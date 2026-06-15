@@ -1185,16 +1185,24 @@ export const miningAbi = [
                 "internalType": "address"
             },
             {
-                "name": "usdtPurchaseSpaceLimit_",
-                "type": "uint256",
-                "internalType": "uint256"
-            },
-            {
                 "name": "freeMinerSpaceAmount_",
                 "type": "uint256",
                 "internalType": "uint256"
             }
         ],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "addUsdtPurchaseSpaceQuota",
+        "inputs": [
+            {
+                "name": "amount",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [],
         "stateMutability": "nonpayable"
     },
     {
@@ -1639,20 +1647,7 @@ export const miningAbi = [
     },
     {
         "type": "function",
-        "name": "usdtPurchaseSpaceLimit",
-        "inputs": [],
-        "outputs": [
-            {
-                "name": "",
-                "type": "uint256",
-                "internalType": "uint256"
-            }
-        ],
-        "stateMutability": "view"
-    },
-    {
-        "type": "function",
-        "name": "usdtPurchasedSpaceAmount",
+        "name": "usdtPurchaseSpaceQuota",
         "inputs": [],
         "outputs": [
             {
@@ -2026,6 +2021,25 @@ export const miningAbi = [
     },
     {
         "type": "event",
+        "name": "UsdtPurchaseSpaceQuotaAdded",
+        "inputs": [
+            {
+                "name": "amount",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            },
+            {
+                "name": "newQuota",
+                "type": "uint256",
+                "indexed": false,
+                "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
         "name": "UsdtWithdrawn",
         "inputs": [
             {
@@ -2099,6 +2113,11 @@ export const miningAbi = [
     },
     {
         "type": "error",
+        "name": "InsufficientUsdtPurchaseSpaceQuota",
+        "inputs": []
+    },
+    {
+        "type": "error",
         "name": "InvalidFee",
         "inputs": []
     },
@@ -2120,6 +2139,11 @@ export const miningAbi = [
     {
         "type": "error",
         "name": "InvalidSigner",
+        "inputs": []
+    },
+    {
+        "type": "error",
+        "name": "InvalidUsdtPurchaseSpaceQuota",
         "inputs": []
     },
     {
@@ -2159,11 +2183,6 @@ export const miningAbi = [
                 "internalType": "address"
             }
         ]
-    },
-    {
-        "type": "error",
-        "name": "UsdtPurchaseSpaceLimitExceeded",
-        "inputs": []
     }
 ] as const satisfies Abi;
 

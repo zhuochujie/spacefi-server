@@ -1,12 +1,27 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource, In, Not, Repository } from 'typeorm';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 import { Account } from 'src/account/entities/account.entity';
-import { AccountBalanceLog, AccountBalanceLogToken, AccountBalanceLogType } from 'src/account/entities/account-balance-log.entity';
+import {
+  AccountBalanceLog,
+  AccountBalanceLogToken,
+  AccountBalanceLogType,
+} from 'src/account/entities/account-balance-log.entity';
 import { AccountMiner } from 'src/miner/entities/account-miner.entity';
-import { AdminAccountListQueryDto, AdminAccountSortBy } from './dto/admin-account-list-query.dto';
+import {
+  AdminAccountListQueryDto,
+  AdminAccountSortBy,
+} from './dto/admin-account-list-query.dto';
 import { BalanceLogQueryDto } from 'src/account/dto/balance-log-query.dto';
 import { AdminUpdateUserLevelsDto } from './dto/admin-update-user-levels.dto';
-import { DividendRule, DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
+import {
+  DividendRule,
+  DividendRuleCategory,
+} from 'src/config/entities/dividend-rule.entity';
 import { AdminUpdateDividendRuleDto } from './dto/admin-update-dividend-rule.dto';
 import { AdminPageQueryDto } from './dto/admin-page-query.dto';
 import { Config } from 'src/config/entities/config.entity';
@@ -17,8 +32,12 @@ import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
 import { MinerPurchaseSignature } from 'src/miner/entities/miner-purchase-signature.entity';
 import { MinerPurchaseSignatureStatus } from 'src/miner/enums/miner-purchase-signature-status.enum';
-import { Order, OrderSide, OrderStatus } from 'src/market/entities/order.entity';
-import { MarketTrade } from 'src/market/entities/market-trade.entity';
+// import {
+//   Order,
+//   OrderSide,
+//   OrderStatus,
+// } from 'src/market/entities/order.entity';
+// import { MarketTrade } from 'src/market/entities/market-trade.entity';
 import { Miner } from 'src/miner/entities/miner.entity';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
@@ -30,20 +49,21 @@ export class AdminService {
   async getUsers(query: AdminAccountListQueryDto) {
     const { whereSql, params } = this.buildUserListWhere(query);
     const orderBy = this.getUserListOrderBy(query.sortBy);
-    const list = await this.dataSource.query<{
-      id: number;
-      address: string;
-      refCode: string;
-      vipLevel: number;
-      manualVipLevel: number;
-      balance: string;
-      usdtBalance: string;
-      nodeLevel: number;
-      isAdmin: boolean;
-      createdAt: number;
-      teamCount: number | string;
-      teamPerformance: string;
-    }[]>(
+    const list = await this.dataSource.query<
+      {
+        id: number;
+        address: string;
+        refCode: string;
+        vipLevel: number;
+        manualVipLevel: number;
+        balance: string;
+        usdtBalance: string;
+        nodeLevel: number;
+        createdAt: number;
+        teamCount: number | string;
+        teamPerformance: string;
+      }[]
+    >(
       `
       WITH team_stats AS (
         SELECT
@@ -65,7 +85,6 @@ export class AdminService {
         account.balance::text AS balance,
         account.usdt_balance::text AS "usdtBalance",
         account.node_level AS "nodeLevel",
-        account.is_admin AS "isAdmin",
         account.created_at AS "createdAt",
         COALESCE(team_stats.team_count, 0) AS "teamCount",
         COALESCE(team_stats.team_performance, '0') AS "teamPerformance"
@@ -90,7 +109,7 @@ export class AdminService {
     const total = Number(totalResult[0]?.total ?? 0);
 
     return {
-      list: list.map(user => ({
+      list: list.map((user) => ({
         ...user,
         teamCount: Number(user.teamCount),
       })),
@@ -106,7 +125,9 @@ export class AdminService {
     }
 
     const accountRepository = this.dataSource.getRepository(Account);
-    const account = await accountRepository.findOne({ where: { id: accountId } });
+    const account = await accountRepository.findOne({
+      where: { id: accountId },
+    });
     if (!account) {
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
@@ -127,7 +148,6 @@ export class AdminService {
       vipLevel: account.vipLevel,
       manualVipLevel: account.manualVipLevel,
       nodeLevel: account.nodeLevel,
-      isAdmin: account.isAdmin,
       balance: account.balance,
       usdtBalance: account.usdtBalance,
       createdAt: account.createdAt,
@@ -136,8 +156,7 @@ export class AdminService {
 
   async getDividendRules() {
     const dividendRuleRepository = this.dataSource.getRepository(DividendRule);
-
-    return dividendRuleRepository.find({
+    const rules = await dividendRuleRepository.find({
       order: {
         category: 'ASC',
         token: 'ASC',
@@ -145,28 +164,64 @@ export class AdminService {
         id: 'ASC',
       },
     });
+    const groupMap = new Map<
+      string,
+      {
+        category: DividendRuleCategory;
+        token: AccountBalanceLogToken;
+        totalBp: number;
+        rules: DividendRule[];
+      }
+    >();
+
+    for (const rule of rules) {
+      const groupKey = `${rule.category}:${rule.token}`;
+      const group = groupMap.get(groupKey) ?? {
+        category: rule.category,
+        token: rule.token,
+        totalBp: 0,
+        rules: [],
+      };
+      group.rules.push(rule);
+      group.totalBp += rule.bp;
+      groupMap.set(groupKey, group);
+    }
+
+    return [...groupMap.values()];
   }
 
-  async updateDividendRule(ruleId: number, dto: AdminUpdateDividendRuleDto) {
-    return this.dataSource.transaction(async manager => {
+  async updateDividendRuleGroup(
+    category: DividendRuleCategory,
+    token: AccountBalanceLogToken,
+    dto: AdminUpdateDividendRuleDto,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
       const dividendRuleRepository = manager.getRepository(DividendRule);
-      const rule = await dividendRuleRepository.findOne({ where: { id: ruleId } });
-      if (!rule) {
-        throw new NotFoundException('DIVIDEND_RULE_NOT_FOUND');
+      const rules = await dividendRuleRepository.find({
+        where: { category, token },
+        order: { level: 'ASC', id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (rules.length === 0) {
+        throw new NotFoundException('DIVIDEND_RULE_GROUP_NOT_FOUND');
       }
 
-      await this.validateDividendRuleBpTotal(
-        dividendRuleRepository,
-        rule.category,
-        rule.token,
-        dto.bp,
-        rule.id,
-      );
+      this.validateDividendRuleGroupUpdate(rules, dto);
 
-      rule.bp = dto.bp;
-      rule.updatedAt = Math.floor(Date.now() / 1000);
+      const bpMap = new Map(dto.rules.map((rule) => [rule.level, rule.bp]));
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      for (const rule of rules) {
+        rule.bp = bpMap.get(rule.level)!;
+        rule.updatedAt = currentTimestamp;
+      }
 
-      return dividendRuleRepository.save(rule);
+      const savedRules = await dividendRuleRepository.save(rules);
+      return {
+        category,
+        token,
+        totalBp: savedRules.reduce((total, rule) => total + rule.bp, 0),
+        rules: savedRules,
+      };
     });
   }
 
@@ -174,6 +229,9 @@ export class AdminService {
     const configRepository = this.dataSource.getRepository(Config);
 
     return configRepository.find({
+      where: {
+        isAdminEditable: true,
+      },
       order: {
         key: 'ASC',
       },
@@ -181,17 +239,31 @@ export class AdminService {
   }
 
   async updateConfig(key: string, dto: AdminUpdateConfigDto) {
-    return this.dataSource.transaction(async manager => {
+    return this.dataSource.transaction(async (manager) => {
       const configRepository = manager.getRepository(Config);
       const config = await configRepository.findOne({ where: { key } });
       if (!config) {
         throw new NotFoundException('CONFIG_NOT_FOUND');
       }
+      if (!config.isAdminEditable) {
+        throw new BadRequestException('CONFIG_NOT_ADMIN_EDITABLE');
+      }
 
       await this.validateConfigValue(configRepository, key, dto.value);
 
       config.value = dto.value;
-      return configRepository.save(config);
+      const savedConfig = await configRepository.save(config);
+      if (key === ConfigService.CYCLE_REWARD_BP_KEY) {
+        await this.updateActiveMinerRewardPerSecond(manager, dto.value);
+      }
+      if (key === ConfigService.FREE_MINER_CYCLE_REWARD_BP_KEY) {
+        await this.updateActiveFreeMinerRewardPerSecond(manager, dto.value);
+      }
+      if (key === ConfigService.VIP_V1_MARKET_THRESHOLD_WEI_KEY) {
+        await manager.query('CALL recompute_vip_levels()');
+      }
+
+      return savedConfig;
     });
   }
 
@@ -209,10 +281,7 @@ export class AdminService {
   async createMiner(dto: AdminCreateMinerDto) {
     const minerRepository = this.dataSource.getRepository(Miner);
     const existingMiner = await minerRepository.findOne({
-      where: [
-        { id: dto.id },
-        { name: dto.name },
-      ],
+      where: [{ id: dto.id }, { name: dto.name }],
     });
     if (existingMiner) {
       throw new ConflictException('MINER_ALREADY_EXISTS');
@@ -224,7 +293,6 @@ export class AdminService {
         name: dto.name,
         price: dto.price,
         expectedReward: dto.expectedReward,
-        remainingQuantity: dto.remainingQuantity,
         desc: dto.desc,
         isPurchasable: dto.isPurchasable ?? false,
       }),
@@ -236,7 +304,6 @@ export class AdminService {
       dto.name === undefined &&
       dto.price === undefined &&
       dto.expectedReward === undefined &&
-      dto.remainingQuantity === undefined &&
       dto.desc === undefined &&
       dto.isPurchasable === undefined
     ) {
@@ -267,9 +334,6 @@ export class AdminService {
     if (dto.expectedReward !== undefined) {
       miner.expectedReward = dto.expectedReward;
     }
-    if (dto.remainingQuantity !== undefined) {
-      miner.remainingQuantity = dto.remainingQuantity;
-    }
     if (dto.desc !== undefined) {
       miner.desc = dto.desc;
     }
@@ -282,10 +346,13 @@ export class AdminService {
 
   async getTodayMinerPurchaseSpace() {
     const { startAt, endAt } = this.getTodayRange();
-    const result = await this.dataSource.getRepository(MinerPurchaseSignature)
+    const result = await this.dataSource
+      .getRepository(MinerPurchaseSignature)
       .createQueryBuilder('signature')
       .select('COALESCE(SUM(signature.price), 0)', 'amount')
-      .where('signature.status = :status', { status: MinerPurchaseSignatureStatus.Used })
+      .where('signature.status = :status', {
+        status: MinerPurchaseSignatureStatus.Used,
+      })
       .andWhere('signature.created_at >= :startAt', { startAt })
       .andWhere('signature.created_at < :endAt', { endAt })
       .getRawOne<{ amount: string }>();
@@ -298,7 +365,8 @@ export class AdminService {
   }
 
   async getActiveUserCount() {
-    const result = await this.dataSource.getRepository(AccountMiner)
+    const result = await this.dataSource
+      .getRepository(AccountMiner)
       .createQueryBuilder('accountMiner')
       .select('COUNT(DISTINCT accountMiner.accountId)', 'count')
       .getRawOne<{ count: string }>();
@@ -314,46 +382,113 @@ export class AdminService {
     return { count };
   }
 
-  async getMarketOpenSpace() {
-    const result = await this.dataSource.getRepository(Order)
-      .createQueryBuilder('order')
-      .select('order.side', 'side')
-      .addSelect('COALESCE(SUM(order.remainingSpaceAmount), 0)', 'amount')
-      .where('order.status = :status', { status: OrderStatus.Open })
-      .andWhere('order.visible = true')
-      .groupBy('order.side')
-      .getRawMany<{ side: OrderSide; amount: string }>();
-    const amountMap = new Map(result.map(item => [item.side, item.amount]));
+  async getEstimatedMinerRewards() {
+    const targetTimestamp = this.getNextShanghaiMidnightTimestamp();
+    const [accountMinerResult] = await this.dataSource.query<
+      {
+        minerCount: string;
+        accountCount: string;
+        rewardTotal: string;
+      }[]
+    >(
+      `
+      SELECT
+        COUNT(*)::text AS "minerCount",
+        COUNT(DISTINCT account_id)::text AS "accountCount",
+        COALESCE(SUM(LEAST(
+          ($1 - last_reward_at)::numeric * reward_per_second,
+          expected_reward - produced_reward
+        )), 0)::text AS "rewardTotal"
+      FROM account_miner
+      WHERE produced_reward < expected_reward
+        AND last_reward_at < $1
+      `,
+      [targetTimestamp],
+    );
+    const [freeMinerResult] = await this.dataSource.query<
+      {
+        minerCount: string;
+        accountCount: string;
+        rewardTotal: string;
+      }[]
+    >(
+      `
+      SELECT
+        COUNT(*)::text AS "minerCount",
+        COUNT(DISTINCT account_id)::text AS "accountCount",
+        COALESCE(SUM(LEAST(
+          ($1 - last_reward_at)::numeric * reward_per_second,
+          expected_reward - produced_reward
+        )), 0)::text AS "rewardTotal"
+      FROM free_miner
+      WHERE produced_reward < expected_reward
+        AND last_reward_at < $1
+      `,
+      [targetTimestamp],
+    );
+    const accountMinerRewardTotal = accountMinerResult?.rewardTotal ?? '0';
+    const freeMinerRewardTotal = freeMinerResult?.rewardTotal ?? '0';
 
     return {
-      buySpaceAmount: amountMap.get(OrderSide.Buy) ?? '0',
-      sellSpaceAmount: amountMap.get(OrderSide.Sell) ?? '0',
+      targetTimestamp,
+      accountMiner: {
+        minerCount: Number(accountMinerResult?.minerCount ?? 0),
+        accountCount: Number(accountMinerResult?.accountCount ?? 0),
+        rewardTotal: accountMinerRewardTotal,
+      },
+      freeMiner: {
+        minerCount: Number(freeMinerResult?.minerCount ?? 0),
+        accountCount: Number(freeMinerResult?.accountCount ?? 0),
+        rewardTotal: freeMinerRewardTotal,
+      },
+      totalReward: (
+        BigInt(accountMinerRewardTotal) + BigInt(freeMinerRewardTotal)
+      ).toString(),
     };
   }
 
-  async getTodayMarketTrades() {
-    const { startAt, endAt } = this.getTodayRange();
-    const result = await this.dataSource.getRepository(MarketTrade)
-      .createQueryBuilder('trade')
-      .select('COALESCE(SUM(trade.spaceAmount), 0)', 'spaceVolume')
-      .addSelect('COALESCE(SUM(trade.usdtAmount), 0)', 'tradingVolume')
-      .addSelect('COUNT(*)', 'tradeCount')
-      .where('trade.filledAt >= :startAt', { startAt })
-      .andWhere('trade.filledAt < :endAt', { endAt })
-      .getRawOne<{
-        spaceVolume: string;
-        tradingVolume: string;
-        tradeCount: string;
-      }>();
+  // async getMarketOpenSpace() {
+  //   const result = await this.dataSource
+  //     .getRepository(Order)
+  //     .createQueryBuilder('order')
+  //     .select('order.side', 'side')
+  //     .addSelect('COALESCE(SUM(order.remainingSpaceAmount), 0)', 'amount')
+  //     .where('order.status = :status', { status: OrderStatus.Open })
+  //     .andWhere('order.visible = true')
+  //     .groupBy('order.side')
+  //     .getRawMany<{ side: OrderSide; amount: string }>();
+  //   const amountMap = new Map(result.map((item) => [item.side, item.amount]));
 
-    return {
-      spaceVolume: result?.spaceVolume ?? '0',
-      tradingVolume: result?.tradingVolume ?? '0',
-      tradeCount: result?.tradeCount ?? '0',
-      startAt,
-      endAt,
-    };
-  }
+  //   return {
+  //     buySpaceAmount: amountMap.get(OrderSide.Buy) ?? '0',
+  //     sellSpaceAmount: amountMap.get(OrderSide.Sell) ?? '0',
+  //   };
+  // }
+
+  // async getTodayMarketTrades() {
+  //   const { startAt, endAt } = this.getTodayRange();
+  //   const result = await this.dataSource
+  //     .getRepository(MarketTrade)
+  //     .createQueryBuilder('trade')
+  //     .select('COALESCE(SUM(trade.spaceAmount), 0)', 'spaceVolume')
+  //     .addSelect('COALESCE(SUM(trade.usdtAmount), 0)', 'tradingVolume')
+  //     .addSelect('COUNT(*)', 'tradeCount')
+  //     .where('trade.filledAt >= :startAt', { startAt })
+  //     .andWhere('trade.filledAt < :endAt', { endAt })
+  //     .getRawOne<{
+  //       spaceVolume: string;
+  //       tradingVolume: string;
+  //       tradeCount: string;
+  //     }>();
+
+  //   return {
+  //     spaceVolume: result?.spaceVolume ?? '0',
+  //     tradingVolume: result?.tradingVolume ?? '0',
+  //     tradeCount: result?.tradeCount ?? '0',
+  //     startAt,
+  //     endAt,
+  //   };
+  // }
 
   async getNotices(query: AdminPageQueryDto) {
     const noticeRepository = this.dataSource.getRepository(Notice);
@@ -453,7 +588,8 @@ export class AdminService {
   }
 
   async getDividendLogs(query: AdminPageQueryDto) {
-    const balanceLogRepository = this.dataSource.getRepository(AccountBalanceLog);
+    const balanceLogRepository =
+      this.dataSource.getRepository(AccountBalanceLog);
     const [list, total] = await balanceLogRepository.findAndCount({
       where: {
         type: In([
@@ -482,12 +618,15 @@ export class AdminService {
 
   async getUserBalanceLogs(accountId: number, query: BalanceLogQueryDto) {
     const accountRepository = this.dataSource.getRepository(Account);
-    const account = await accountRepository.findOne({ where: { id: accountId } });
+    const account = await accountRepository.findOne({
+      where: { id: accountId },
+    });
     if (!account) {
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
 
-    const balanceLogRepository = this.dataSource.getRepository(AccountBalanceLog);
+    const balanceLogRepository =
+      this.dataSource.getRepository(AccountBalanceLog);
     const [list, total] = await balanceLogRepository.findAndCount({
       where: {
         accountId,
@@ -512,13 +651,16 @@ export class AdminService {
 
   async getUserMiners(accountId: number) {
     const accountRepository = this.dataSource.getRepository(Account);
-    const account = await accountRepository.findOne({ where: { id: accountId } });
+    const account = await accountRepository.findOne({
+      where: { id: accountId },
+    });
     if (!account) {
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
 
     const accountMinerRepository = this.dataSource.getRepository(AccountMiner);
-    const accountBalanceLogRepository = this.dataSource.getRepository(AccountBalanceLog);
+    const accountBalanceLogRepository =
+      this.dataSource.getRepository(AccountBalanceLog);
 
     const list = await accountMinerRepository.find({
       where: { accountId },
@@ -563,23 +705,29 @@ export class AdminService {
     };
   }
 
-  private async validateDividendRuleBpTotal(
-    dividendRuleRepository: Repository<DividendRule>,
-    category: DividendRuleCategory,
-    token: AccountBalanceLogToken,
-    targetBp: number,
-    excludeRuleId?: number,
+  private validateDividendRuleGroupUpdate(
+    existingRules: DividendRule[],
+    dto: AdminUpdateDividendRuleDto,
   ) {
-    const rules = await dividendRuleRepository.find({
-      where: {
-        category,
-        token,
-        ...(excludeRuleId === undefined ? {} : { id: Not(excludeRuleId) }),
-      },
-    });
-    const totalBp = rules.reduce((total, rule) => total + rule.bp, targetBp);
-    if (totalBp > 10000) {
-      throw new BadRequestException('DIVIDEND_RULE_BP_EXCEEDS_LIMIT');
+    const submittedLevels = new Set<number>();
+    for (const rule of dto.rules) {
+      if (submittedLevels.has(rule.level)) {
+        throw new BadRequestException('DUPLICATE_DIVIDEND_RULE_LEVEL');
+      }
+      submittedLevels.add(rule.level);
+    }
+
+    const existingLevels = new Set(existingRules.map((rule) => rule.level));
+    if (
+      submittedLevels.size !== existingLevels.size ||
+      [...existingLevels].some((level) => !submittedLevels.has(level))
+    ) {
+      throw new BadRequestException('INVALID_DIVIDEND_RULE_LEVELS');
+    }
+
+    const totalBp = dto.rules.reduce((total, rule) => total + rule.bp, 0);
+    if (totalBp !== 10000) {
+      throw new BadRequestException('DIVIDEND_RULE_BP_TOTAL_MUST_EQUAL_10000');
     }
   }
 
@@ -594,10 +742,6 @@ export class AdminService {
     if (query.refCode) {
       params.push(`%${query.refCode}%`);
       conditions.push(`account.ref_code ILIKE $${params.length}`);
-    }
-    if (query.isAdmin !== undefined) {
-      params.push(query.isAdmin);
-      conditions.push(`account.is_admin = $${params.length}`);
     }
     if (query.vipLevel !== undefined) {
       params.push(query.vipLevel);
@@ -633,12 +777,24 @@ export class AdminService {
   private getTodayRange() {
     const timezoneOffsetSeconds = 8 * 60 * 60;
     const now = Math.floor(Date.now() / 1000);
-    const startAt = Math.floor((now + timezoneOffsetSeconds) / 86400) * 86400 - timezoneOffsetSeconds;
+    const startAt =
+      Math.floor((now + timezoneOffsetSeconds) / 86400) * 86400 -
+      timezoneOffsetSeconds;
 
     return {
       startAt,
       endAt: startAt + 86400,
     };
+  }
+
+  private getNextShanghaiMidnightTimestamp() {
+    const timezoneOffsetSeconds = 8 * 60 * 60;
+    const now = Math.floor(Date.now() / 1000);
+
+    return (
+      Math.floor((now + timezoneOffsetSeconds) / 86400 + 1) * 86400 -
+      timezoneOffsetSeconds
+    );
   }
 
   private async validateConfigValue(
@@ -668,10 +824,13 @@ export class AdminService {
       key === ConfigService.VIP_FEE_BP_KEY ||
       key === ConfigService.NODE_FEE_BP_KEY
     ) {
-      const otherKey = key === ConfigService.VIP_FEE_BP_KEY
-        ? ConfigService.NODE_FEE_BP_KEY
-        : ConfigService.VIP_FEE_BP_KEY;
-      const otherConfig = await configRepository.findOne({ where: { key: otherKey } });
+      const otherKey =
+        key === ConfigService.VIP_FEE_BP_KEY
+          ? ConfigService.NODE_FEE_BP_KEY
+          : ConfigService.VIP_FEE_BP_KEY;
+      const otherConfig = await configRepository.findOne({
+        where: { key: otherKey },
+      });
       const otherValue = BigInt(otherConfig?.value ?? '0');
 
       if (numericValue + otherValue > 10000n) {
@@ -693,18 +852,44 @@ export class AdminService {
       }
     }
 
-    if (
-      key === ConfigService.SPACE_USDT_PRICE_WEI_KEY &&
-      numericValue <= 0n
-    ) {
+    if (key === ConfigService.SPACE_USDT_PRICE_WEI_KEY && numericValue <= 0n) {
+      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
+
+    if (key === ConfigService.FREE_MINER_PRICE_WEI_KEY && numericValue <= 0n) {
       throw new BadRequestException('INVALID_CONFIG_FORMAT');
     }
 
     if (
-      key === ConfigService.FREE_MINER_PRICE_WEI_KEY &&
-      numericValue <= 0n
+      key === ConfigService.COMMISSION_MID_MINER_PRICE_WEI_KEY ||
+      key === ConfigService.COMMISSION_HIGH_MINER_PRICE_WEI_KEY
     ) {
-      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+      if (numericValue <= 0n) {
+        throw new BadRequestException('INVALID_CONFIG_FORMAT');
+      }
+
+      const otherKey =
+        key === ConfigService.COMMISSION_MID_MINER_PRICE_WEI_KEY
+          ? ConfigService.COMMISSION_HIGH_MINER_PRICE_WEI_KEY
+          : ConfigService.COMMISSION_MID_MINER_PRICE_WEI_KEY;
+      const otherConfig = await configRepository.findOne({
+        where: { key: otherKey },
+      });
+      if (!otherConfig) {
+        throw new BadRequestException('CONFIG_NOT_FOUND');
+      }
+
+      const midThreshold =
+        key === ConfigService.COMMISSION_MID_MINER_PRICE_WEI_KEY
+          ? numericValue
+          : BigInt(otherConfig.value);
+      const highThreshold =
+        key === ConfigService.COMMISSION_HIGH_MINER_PRICE_WEI_KEY
+          ? numericValue
+          : BigInt(otherConfig.value);
+      if (midThreshold >= highThreshold) {
+        throw new BadRequestException('INVALID_COMMISSION_PRICE_THRESHOLDS');
+      }
     }
 
     if (key === ConfigService.MINER_REWARD_START_AT_KEY) {
@@ -713,5 +898,39 @@ export class AdminService {
         throw new BadRequestException('INVALID_CONFIG_FORMAT');
       }
     }
+  }
+
+  private async updateActiveMinerRewardPerSecond(
+    manager: EntityManager,
+    cycleRewardBp: string,
+  ) {
+    await manager.query(
+      `
+      UPDATE account_miner am
+      SET reward_per_second = FLOOR(
+        (m.price * $1::numeric) / 10000 / am.cycle
+      )
+      FROM miner m
+      WHERE m.id = am.miner_id
+        AND am.produced_reward < am.expected_reward
+      `,
+      [cycleRewardBp],
+    );
+  }
+
+  private async updateActiveFreeMinerRewardPerSecond(
+    manager: EntityManager,
+    cycleRewardBp: string,
+  ) {
+    await manager.query(
+      `
+      UPDATE free_miner
+      SET reward_per_second = FLOOR(
+        (price * $1::numeric) / 10000 / cycle
+      )
+      WHERE produced_reward < expected_reward
+      `,
+      [cycleRewardBp],
+    );
   }
 }

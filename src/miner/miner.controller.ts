@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { MinerService } from './miner.service';
-import { CurrentAccount, type JwtAccount } from 'src/common/decorators/current-account.decorator';
+import {
+  CurrentAccount,
+  type JwtAccount,
+} from 'src/common/decorators/current-account.decorator';
 import { PurchaseMinerDto } from './dto/purchase-miner.dto';
 import { Public } from 'src/common/decorators/public.decorator';
 import { SubmitNonceDto } from './dto/submit-nonce.dto';
@@ -12,8 +15,8 @@ export class MinerController {
   constructor(private readonly minerService: MinerService) {}
 
   @Get()
-  async getMiners() {
-    return this.minerService.getMiners();
+  async getMiners(@CurrentAccount() account: JwtAccount) {
+    return this.minerService.getMiners(account.sub);
   }
 
   @Get('my')
@@ -40,9 +43,7 @@ export class MinerController {
 
   @Public()
   @Post('nonce')
-  submitNonce(
-    @Body() submitNonceDto: SubmitNonceDto,
-  ) {
+  submitNonce(@Body() submitNonceDto: SubmitNonceDto) {
     return this.minerService.submitNonce(submitNonceDto.nonce);
   }
 
@@ -52,8 +53,15 @@ export class MinerController {
   }
 
   @Post('purchase')
-  async purchaseMiner(@CurrentAccount() account: JwtAccount, @Body() purchaseMinerDto: PurchaseMinerDto) {
-    return this.minerService.generatePurchaseMinerSignature(account.sub, purchaseMinerDto.minerId, purchaseMinerDto.method);
+  async purchaseMiner(
+    @CurrentAccount() account: JwtAccount,
+    @Body() purchaseMinerDto: PurchaseMinerDto,
+  ) {
+    return this.minerService.generatePurchaseMinerSignature(
+      account.sub,
+      purchaseMinerDto.minerId,
+      purchaseMinerDto.method,
+    );
   }
 
   @Post('free/hash')
@@ -82,5 +90,4 @@ export class MinerController {
   getFreeMinerHashStatus(@Param() params: SubmitFreeMinerHashDto) {
     return this.minerService.getFreeMinerHashStatus(params.hash);
   }
-  
 }

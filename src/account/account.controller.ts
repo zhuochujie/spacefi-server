@@ -16,6 +16,11 @@ export class AccountController {
     return await this.accountService.getCommissionLevel(account.sub);
   }
 
+  @Get('withdraw-fee-bps')
+  async getWithdrawFeeBps() {
+    return await this.accountService.getWithdrawFeeBps();
+  }
+
   @Get('balance-logs')
   async getBalanceLogs(
     @CurrentAccount() account: JwtAccount,

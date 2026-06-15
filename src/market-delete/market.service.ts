@@ -1,6 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, FindOptionsOrder, MoreThanOrEqual, Repository } from 'typeorm';
+import {
+  EntityManager,
+  FindOptionsOrder,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import { Order, OrderSide, OrderStatus } from './entities/order.entity';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -49,17 +60,20 @@ export class MarketService {
     @InjectQueue('market-queue')
     private readonly marketQueue: Queue,
     private readonly web3Service: Web3Service,
-  ) { }
+  ) {}
 
-  async orderPlaced(event: {
-    orderId: string;
-    maker: string;
-    side: number;
-    spaceAmount: bigint;
-    price: bigint;
-    usdtAmount: bigint;
-    visible: boolean;
-  }, manager: EntityManager) {
+  async orderPlaced(
+    event: {
+      orderId: string;
+      maker: string;
+      side: number;
+      spaceAmount: bigint;
+      price: bigint;
+      usdtAmount: bigint;
+      visible: boolean;
+    },
+    manager: EntityManager,
+  ) {
     const orderRepository = manager.getRepository(Order);
     const id = event.orderId.toLowerCase();
     const existingOrder = await orderRepository.findOne({
@@ -88,19 +102,22 @@ export class MarketService {
     );
   }
 
-  async orderFilled(event: {
-    orderId: string;
-    maker: string;
-    taker: string;
-    spaceAmount: bigint;
-    price: bigint;
-    usdtAmount: bigint;
-    nodeFee: bigint;
-    markerFee: bigint;
-    transactionHash: string;
-    logIndex: number;
-    filledAt: number;
-  }, manager: EntityManager) {
+  async orderFilled(
+    event: {
+      orderId: string;
+      maker: string;
+      taker: string;
+      spaceAmount: bigint;
+      price: bigint;
+      usdtAmount: bigint;
+      nodeFee: bigint;
+      markerFee: bigint;
+      transactionHash: string;
+      logIndex: number;
+      filledAt: number;
+    },
+    manager: EntityManager,
+  ) {
     const orderRepository = manager.getRepository(Order);
     const marketTradeRepository = manager.getRepository(MarketTrade);
     const id = event.orderId.toLowerCase();
@@ -114,7 +131,9 @@ export class MarketService {
     }
 
     if (order.status !== OrderStatus.Open) {
-      this.logger.warn(`非开放订单收到成交事件，orderId:${id}, status:${order.status}`);
+      this.logger.warn(
+        `非开放订单收到成交事件，orderId:${id}, status:${order.status}`,
+      );
       return order;
     }
 
@@ -154,10 +173,13 @@ export class MarketService {
     return await orderRepository.save(order);
   }
 
-  async orderCancelled(event: {
-    orderId: string;
-    maker: string;
-  }, manager: EntityManager) {
+  async orderCancelled(
+    event: {
+      orderId: string;
+      maker: string;
+    },
+    manager: EntityManager,
+  ) {
     const orderRepository = manager.getRepository(Order);
     const id = event.orderId.toLowerCase();
     const order = await orderRepository.findOne({
@@ -170,7 +192,9 @@ export class MarketService {
     }
 
     if (order.status !== OrderStatus.Open) {
-      this.logger.warn(`非开放订单收到取消事件，orderId:${id}, status:${order.status}`);
+      this.logger.warn(
+        `非开放订单收到取消事件，orderId:${id}, status:${order.status}`,
+      );
       return order;
     }
 
@@ -193,7 +217,9 @@ export class MarketService {
   }
 
   async submitHash(hash: string) {
-    return await this.marketQueue.add('market-hash', hash);
+    return await this.marketQueue.add('market-hash', hash, {
+      jobId: `market-hash-${hash}`,
+    });
   }
 
   async getHashStatus(hash: string) {
@@ -275,7 +301,11 @@ export class MarketService {
         ...(options.status ? { status: options.status } : {}),
         ...(options.visible !== undefined ? { visible: options.visible } : {}),
         ...(options.minRemainingSpaceAmount
-          ? { remainingSpaceAmount: MoreThanOrEqual(options.minRemainingSpaceAmount) }
+          ? {
+              remainingSpaceAmount: MoreThanOrEqual(
+                options.minRemainingSpaceAmount,
+              ),
+            }
           : {}),
       },
       order: options.order ?? {
@@ -323,7 +353,10 @@ export class MarketService {
     const averagePrice =
       BigInt(spaceVolume) === 0n
         ? '0'
-        : ((BigInt(tradingVolume) * 10n ** 18n) / BigInt(spaceVolume)).toString();
+        : (
+            (BigInt(tradingVolume) * 10n ** 18n) /
+            BigInt(spaceVolume)
+          ).toString();
 
     return {
       tradingVolume24h: tradingVolume,
@@ -351,6 +384,17 @@ export class MarketService {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async syncOpenOrdersFromChain() {
+    try {
+      await this.syncOpenOrdersFromChainTask();
+    } catch (error) {
+      this.logger.error(
+        '定时任务 syncOpenOrdersFromChain 执行失败',
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private async syncOpenOrdersFromChainTask() {
     const openOrders = await this.orderRepository.find({
       where: {
         status: OrderStatus.Open,
@@ -402,7 +446,7 @@ export class MarketService {
       return order;
     });
 
-    await this.orderRepository.manager.transaction(async manager => {
+    await this.orderRepository.manager.transaction(async (manager) => {
       const orderRepository = manager.getRepository(Order);
 
       for (const syncedOrder of syncedOrders) {

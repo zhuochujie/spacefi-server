@@ -1,11 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CustomException } from 'src/common/custom.exception';
-import { decodeEventLog, PublicClient, verifyMessage, createPublicClient, http, parseEventLogs, keccak256, encodePacked, stringToBytes, createWalletClient, erc20Abi } from 'viem';
+import { PublicClient, verifyMessage, createPublicClient, http, parseEventLogs, keccak256, encodePacked, stringToBytes, createWalletClient, erc20Abi } from 'viem';
 import { market, mining, node, nodeFeeVault, signerPrivateKey, spaceToken, usdtToken, vipFeeVault } from './constants';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ConfigService } from 'src/config/config.service';
-import { bsc } from './bsc';
-// import { bsc } from 'viem/chains';
+import { bscTestnet as bsc } from './bsc';
 
 @Injectable()
 export class Web3Service {

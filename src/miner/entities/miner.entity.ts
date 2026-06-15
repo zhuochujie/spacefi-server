@@ -17,9 +17,6 @@ export class Miner {
   @Column({ type: 'numeric', precision: 28, scale: 0 })
   expectedReward!: string;
 
-  @Column({ type: 'integer', default: 0 })
-  remainingQuantity!: number;
-
   @Column({ default: false })
   isPurchasable!: boolean;
 }

@@ -1,6 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Query, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Query,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { Admin } from 'src/common/decorators/admin.decorator';
-import { CurrentAccount, type JwtAccount } from 'src/common/decorators/current-account.decorator';
+import {
+  type AdminJwtAccount,
+  CurrentAccount,
+} from 'src/common/decorators/current-account.decorator';
 import { AdminService } from './admin.service';
 import { AdminAccountListQueryDto } from './dto/admin-account-list-query.dto';
 import { BalanceLogQueryDto } from 'src/account/dto/balance-log-query.dto';
@@ -8,22 +21,24 @@ import { AdminUpdateUserLevelsDto } from './dto/admin-update-user-levels.dto';
 import { AdminUpdateDividendRuleDto } from './dto/admin-update-dividend-rule.dto';
 import { AdminPageQueryDto } from './dto/admin-page-query.dto';
 import { AdminUpdateConfigDto } from './dto/admin-update-config.dto';
+import { DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
+import { AccountBalanceLogToken } from 'src/account/entities/account-balance-log.entity';
 import { AdminCreateNoticeDto } from './dto/admin-create-notice.dto';
 import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
+import { AdminAction } from 'src/notification/admin-action.decorator';
 
 @Admin()
-@Controller('nzpunvnojj')
+@Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('profile')
-  getProfile(@CurrentAccount() account: JwtAccount) {
+  getProfile(@CurrentAccount() account: AdminJwtAccount) {
     return {
       id: account.sub,
-      address: account.address,
-      isAdmin: true,
+      username: account.username,
     };
   }
 
@@ -48,11 +63,13 @@ export class AdminController {
   }
 
   @Post('miners')
+  @AdminAction('创建矿机')
   createMiner(@Body() dto: AdminCreateMinerDto) {
     return this.adminService.createMiner(dto);
   }
 
   @Patch('miners/:minerId')
+  @AdminAction('修改矿机')
   updateMiner(
     @Param('minerId') minerId: string,
     @Body() dto: AdminUpdateMinerDto,
@@ -75,21 +92,24 @@ export class AdminController {
     return this.adminService.getMinerCount();
   }
 
-  @Get('stats/market-open-space')
-  getMarketOpenSpace() {
-    return this.adminService.getMarketOpenSpace();
+  @Get('stats/estimated-miner-rewards')
+  getEstimatedMinerRewards() {
+    return this.adminService.getEstimatedMinerRewards();
   }
 
-  @Get('stats/today-market-trades')
-  getTodayMarketTrades() {
-    return this.adminService.getTodayMarketTrades();
-  }
+  // @Get('stats/market-open-space')
+  // getMarketOpenSpace() {
+  //   return this.adminService.getMarketOpenSpace();
+  // }
+
+  // @Get('stats/today-market-trades')
+  // getTodayMarketTrades() {
+  //   return this.adminService.getTodayMarketTrades();
+  // }
 
   @Patch('configs/:key')
-  updateConfig(
-    @Param('key') key: string,
-    @Body() dto: AdminUpdateConfigDto,
-  ) {
+  @AdminAction('修改配置')
+  updateConfig(@Param('key') key: string, @Body() dto: AdminUpdateConfigDto) {
     return this.adminService.updateConfig(key, dto);
   }
 
@@ -99,11 +119,13 @@ export class AdminController {
   }
 
   @Post('notices')
+  @AdminAction('创建公告')
   createNotice(@Body() dto: AdminCreateNoticeDto) {
     return this.adminService.createNotice(dto);
   }
 
   @Patch('notices/:noticeId')
+  @AdminAction('修改公告')
   updateNotice(
     @Param('noticeId', ParseIntPipe) noticeId: number,
     @Body() dto: AdminUpdateNoticeDto,
@@ -112,16 +134,19 @@ export class AdminController {
   }
 
   @Delete('notices/:noticeId')
+  @AdminAction('删除公告')
   deleteNotice(@Param('noticeId', ParseIntPipe) noticeId: number) {
     return this.adminService.deleteNotice(noticeId);
   }
 
-  @Patch('dividend-rules/:ruleId')
+  @Patch('dividend-rules/:category/:token')
+  @AdminAction('修改分红规则')
   updateDividendRule(
-    @Param('ruleId', ParseIntPipe) ruleId: number,
+    @Param('category') category: DividendRuleCategory,
+    @Param('token') token: AccountBalanceLogToken,
     @Body() dto: AdminUpdateDividendRuleDto,
   ) {
-    return this.adminService.updateDividendRule(ruleId, dto);
+    return this.adminService.updateDividendRuleGroup(category, token, dto);
   }
 
   @Get('dividend-logs')
@@ -130,6 +155,7 @@ export class AdminController {
   }
 
   @Patch('users/:accountId/levels')
+  @AdminAction('修改用户等级')
   updateUserLevels(
     @Param('accountId', ParseIntPipe) accountId: number,
     @Body() dto: AdminUpdateUserLevelsDto,

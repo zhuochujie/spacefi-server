@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { DataSource } from 'typeorm';
-import { Account } from 'src/account/entities/account.entity';
 import { IS_ADMIN_KEY } from 'src/common/decorators/admin.decorator';
+import { AdminUser } from 'src/admin-auth/entities/admin-user.entity';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -26,15 +26,15 @@ export class AdminGuard implements CanActivate {
         }
 
         const request = context.switchToHttp().getRequest();
-        const accountId = request.account?.sub;
-        if (!accountId) {
+        const adminId = request.account?.sub;
+        if (!adminId || request.account?.type !== 'admin') {
             throw new ForbiddenException('ADMIN_REQUIRED');
         }
 
-        const account = await this.dataSource.getRepository(Account).findOne({
-            where: { id: accountId },
+        const admin = await this.dataSource.getRepository(AdminUser).findOne({
+            where: { id: adminId },
         });
-        if (!account?.isAdmin) {
+        if (!admin?.enabled) {
             throw new ForbiddenException('ADMIN_REQUIRED');
         }
 

@@ -13,10 +13,10 @@ export class Account {
   @Column({ unique: true })
   refCode!: string;
 
-  @Column( { default: 0 } )
+  @Column({ default: 0 })
   vipLevel!: number;
 
-  @Column( { default: 0 } )
+  @Column({ default: 0 })
   manualVipLevel!: number;
 
   @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
@@ -27,9 +27,6 @@ export class Account {
 
   @Column({ default: 0 })
   nodeLevel!: number;
-
-  @Column({ default: false })
-  isAdmin!: boolean;
 
   @Column({ type: 'integer', default: 0 })
   createdAt!: number;
