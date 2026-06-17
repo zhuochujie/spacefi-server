@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { CustomException } from 'src/common/custom.exception';
 import { Config } from './entities/config.entity';
 import {
@@ -41,15 +41,31 @@ export class ConfigService {
 
   async initializeDefaults() {
     const configs = this.getDefaultConfigs();
-    await this.configRepository
-      .createQueryBuilder()
-      .insert()
-      .into(Config)
-      .values(configs)
-      .orIgnore()
-      .execute();
+    await this.configRepository.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        'initialize_default_configs',
+      ]);
 
-    await this.initDividendRules();
+      const configRepository = manager.getRepository(Config);
+      const existingConfigs = await configRepository.find({
+        where: { key: In(configs.map((config) => config.key)) },
+        select: {
+          key: true,
+        },
+      });
+      const existingConfigKeys = new Set(
+        existingConfigs.map((config) => config.key),
+      );
+      const missingConfigs = configs.filter(
+        (config) => !existingConfigKeys.has(config.key),
+      );
+
+      if (missingConfigs.length > 0) {
+        await configRepository.insert(missingConfigs);
+      }
+
+      await this.initDividendRules(manager);
+    });
   }
 
   async getWithdrawFeeBps() {
@@ -284,92 +300,112 @@ export class ConfigService {
     ];
   }
 
-  private async initDividendRules() {
+  private async initDividendRules(manager: EntityManager) {
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    await this.dividendRuleRepository
-      .createQueryBuilder()
-      .insert()
-      .into(DividendRule)
-      .values([
-        {
-          category: DividendRuleCategory.Vip,
-          token: AccountBalanceLogToken.Space,
-          level: 1,
-          bp: 3000,
-          createdAt: currentTimestamp,
-          updatedAt: currentTimestamp,
-        },
-        {
-          category: DividendRuleCategory.Vip,
-          token: AccountBalanceLogToken.Space,
-          level: 2,
-          bp: 2500,
-          createdAt: currentTimestamp,
-          updatedAt: currentTimestamp,
-        },
-        {
-          category: DividendRuleCategory.Vip,
-          token: AccountBalanceLogToken.Space,
-          level: 3,
-          bp: 2000,
-          createdAt: currentTimestamp,
-          updatedAt: currentTimestamp,
-        },
-        {
-          category: DividendRuleCategory.Vip,
-          token: AccountBalanceLogToken.Space,
-          level: 4,
-          bp: 1500,
-          createdAt: currentTimestamp,
-          updatedAt: currentTimestamp,
-        },
-        {
-          category: DividendRuleCategory.Vip,
-          token: AccountBalanceLogToken.Space,
-          level: 5,
-          bp: 1000,
-          createdAt: currentTimestamp,
-          updatedAt: currentTimestamp,
-        },
-        ...[AccountBalanceLogToken.Space, AccountBalanceLogToken.Usdt].flatMap(
-          (token) => [
-            {
-              category: DividendRuleCategory.Node,
-              token,
-              level: 1,
-              bp: 4500,
-              createdAt: currentTimestamp,
-              updatedAt: currentTimestamp,
-            },
-            {
-              category: DividendRuleCategory.Node,
-              token,
-              level: 2,
-              bp: 3000,
-              createdAt: currentTimestamp,
-              updatedAt: currentTimestamp,
-            },
-            {
-              category: DividendRuleCategory.Node,
-              token,
-              level: 3,
-              bp: 1500,
-              createdAt: currentTimestamp,
-              updatedAt: currentTimestamp,
-            },
-            {
-              category: DividendRuleCategory.Node,
-              token,
-              level: 4,
-              bp: 1000,
-              createdAt: currentTimestamp,
-              updatedAt: currentTimestamp,
-            },
-          ],
-        ),
-      ])
-      .orIgnore()
-      .execute();
+    const rules = [
+      {
+        category: DividendRuleCategory.Vip,
+        token: AccountBalanceLogToken.Space,
+        level: 1,
+        bp: 3000,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
+      },
+      {
+        category: DividendRuleCategory.Vip,
+        token: AccountBalanceLogToken.Space,
+        level: 2,
+        bp: 2500,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
+      },
+      {
+        category: DividendRuleCategory.Vip,
+        token: AccountBalanceLogToken.Space,
+        level: 3,
+        bp: 2000,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
+      },
+      {
+        category: DividendRuleCategory.Vip,
+        token: AccountBalanceLogToken.Space,
+        level: 4,
+        bp: 1500,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
+      },
+      {
+        category: DividendRuleCategory.Vip,
+        token: AccountBalanceLogToken.Space,
+        level: 5,
+        bp: 1000,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
+      },
+      ...[AccountBalanceLogToken.Space, AccountBalanceLogToken.Usdt].flatMap(
+        (token) => [
+          {
+            category: DividendRuleCategory.Node,
+            token,
+            level: 1,
+            bp: 4500,
+            createdAt: currentTimestamp,
+            updatedAt: currentTimestamp,
+          },
+          {
+            category: DividendRuleCategory.Node,
+            token,
+            level: 2,
+            bp: 3000,
+            createdAt: currentTimestamp,
+            updatedAt: currentTimestamp,
+          },
+          {
+            category: DividendRuleCategory.Node,
+            token,
+            level: 3,
+            bp: 1500,
+            createdAt: currentTimestamp,
+            updatedAt: currentTimestamp,
+          },
+          {
+            category: DividendRuleCategory.Node,
+            token,
+            level: 4,
+            bp: 1000,
+            createdAt: currentTimestamp,
+            updatedAt: currentTimestamp,
+          },
+        ],
+      ),
+    ];
+    const dividendRuleRepository = manager.getRepository(DividendRule);
+    const existingRules = await dividendRuleRepository.find({
+      where: rules.map((rule) => ({
+        category: rule.category,
+        token: rule.token,
+        level: rule.level,
+      })),
+      select: {
+        category: true,
+        token: true,
+        level: true,
+      },
+    });
+    const existingRuleKeys = new Set(
+      existingRules.map(
+        (rule) => `${rule.category}:${rule.token}:${rule.level}`,
+      ),
+    );
+    const missingRules = rules.filter(
+      (rule) =>
+        !existingRuleKeys.has(`${rule.category}:${rule.token}:${rule.level}`),
+    );
+
+    if (missingRules.length > 0) {
+      await dividendRuleRepository.insert(missingRules);
+    }
   }
 
   private async getConfigMap(keys: string[]) {

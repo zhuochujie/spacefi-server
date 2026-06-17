@@ -44,7 +44,6 @@ export class AccountService {
   ) {}
 
   async initializeDefaults() {
-    const accountRepository = this.dataSource.getRepository(Account);
     const currentTimestamp = Math.floor(Date.now() / 1000);
     const internalAccounts = [
       {
@@ -85,13 +84,42 @@ export class AccountService {
       },
     ];
 
-    await accountRepository
-      .createQueryBuilder()
-      .insert()
-      .into(Account)
-      .values(internalAccounts)
-      .orIgnore()
-      .execute();
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        'initialize_default_accounts',
+      ]);
+
+      const accountRepository = manager.getRepository(Account);
+      const existingAccounts = await accountRepository.find({
+        where: [
+          ...internalAccounts.map((account) => ({
+            address: account.address,
+          })),
+          ...internalAccounts.map((account) => ({
+            refCode: account.refCode,
+          })),
+        ],
+        select: {
+          address: true,
+          refCode: true,
+        },
+      });
+      const existingAddresses = new Set(
+        existingAccounts.map((account) => account.address.toLowerCase()),
+      );
+      const existingRefCodes = new Set(
+        existingAccounts.map((account) => account.refCode),
+      );
+      const missingAccounts = internalAccounts.filter(
+        (account) =>
+          !existingAddresses.has(account.address.toLowerCase()) &&
+          !existingRefCodes.has(account.refCode),
+      );
+
+      if (missingAccounts.length > 0) {
+        await accountRepository.insert(missingAccounts);
+      }
+    });
   }
 
   async findOne(address: string): Promise<Account | null> {

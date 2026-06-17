@@ -53,7 +53,6 @@ export class MinerService {
   ) {}
 
   async initializeDefaults() {
-    const minerRepository = this.dataSource.getRepository(Miner);
     const miners = [
       {
         id: 'SPACE_30',
@@ -127,13 +126,38 @@ export class MinerService {
       },
     ];
 
-    await minerRepository
-      .createQueryBuilder()
-      .insert()
-      .into(Miner)
-      .values(miners)
-      .orIgnore()
-      .execute();
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        'initialize_default_miners',
+      ]);
+
+      const minerRepository = manager.getRepository(Miner);
+      const existingMiners = await minerRepository.find({
+        where: [
+          ...miners.map((miner) => ({ id: miner.id })),
+          ...miners.map((miner) => ({ name: miner.name })),
+        ],
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+      const existingMinerIds = new Set(
+        existingMiners.map((miner) => miner.id),
+      );
+      const existingMinerNames = new Set(
+        existingMiners.map((miner) => miner.name),
+      );
+      const missingMiners = miners.filter(
+        (miner) =>
+          !existingMinerIds.has(miner.id) &&
+          !existingMinerNames.has(miner.name),
+      );
+
+      if (missingMiners.length > 0) {
+        await minerRepository.insert(missingMiners);
+      }
+    });
   }
 
   async submitNonce(nonce: string) {
