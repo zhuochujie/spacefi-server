@@ -122,7 +122,7 @@ export class AccountService {
       let nodeLevel: number;
       try {
         nodeLevel = await this.web3Service.getNodeLevel(
-          address as '0x${string}',
+          address as `0x${string}`,
         );
       } catch (error) {
         nodeLevel = 0;
@@ -163,7 +163,7 @@ export class AccountService {
 
   async syncNodeLevel(address: string) {
     const nodeLevel = await this.web3Service.getNodeLevel(
-      address as '0x${string}',
+      address as `0x${string}`,
     );
     const accountRepository = this.dataSource.getRepository(Account);
     const account = await accountRepository.findOne({ where: { address } });

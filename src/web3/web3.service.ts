@@ -206,18 +206,18 @@ export class Web3Service {
   }
 
   async getNodeLevel(address: `0x${string}`) {
-    let user = await this.publicClient.readContract({
+    const [activated, levelIndex] = await this.publicClient.readContract({
       address: node.address,
       abi: node.abi,
       functionName: 'users',
-      args: [address]
+      args: [address],
     });
 
-    if (user[0]) {
-      return Number(user[1] + 1n);
-    } else {
+    if (!activated) {
       return 0;
     }
+
+    return Number(levelIndex + 1n);
   }
 
   // 分红
