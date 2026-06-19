@@ -30,6 +30,7 @@ import { AccountWithdrawSignatureStatus } from './enums/account-withdraw-signatu
 import { CustomException } from 'src/common/custom.exception';
 import { ConfigService } from 'src/config/config.service';
 import { DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
+import { AccountMiner } from 'src/miner/entities/account-miner.entity';
 
 @Injectable()
 export class AccountService {
@@ -147,6 +148,15 @@ export class AccountService {
       if (!recommender) {
         throw new NotFoundException('REF_CODE_NOT_FOUND');
       }
+
+      const recommenderHasPurchasedMiner = await this.hasPurchasedMiner(
+        recommender.id,
+        manager,
+      );
+      if (!recommenderHasPurchasedMiner) {
+        throw new BadRequestException('INVALID_REF_CODE');
+      }
+
       let nodeLevel: number;
       try {
         nodeLevel = await this.web3Service.getNodeLevel(
@@ -186,6 +196,15 @@ export class AccountService {
       // 插入推荐关系 End
 
       return account;
+    });
+  }
+
+  async hasPurchasedMiner(
+    accountId: number,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<boolean> {
+    return manager.getRepository(AccountMiner).exists({
+      where: { accountId },
     });
   }
 

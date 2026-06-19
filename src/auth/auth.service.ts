@@ -98,6 +98,10 @@ export class AuthService {
       throw new UnauthorizedException('UNAUTHORIZED');
     }
 
+    const hasPurchasedMiner = await this.accountService.hasPurchasedMiner(
+      account.id,
+    );
+
     return {
       id: account.id,
       address: account.address,
@@ -106,6 +110,7 @@ export class AuthService {
       nodeLevel: account.nodeLevel,
       balance: account.balance,
       usdtBalance: account.usdtBalance,
+      hasPurchasedMiner,
       createdAt: account.createdAt,
     };
   }
