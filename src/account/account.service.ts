@@ -292,6 +292,17 @@ export class AccountService {
           vipLevel: number;
           performance: string;
           createdAt: number;
+          miners: {
+            id: number;
+            type: 'miner' | 'free';
+            minerId: string;
+            name: string;
+            expectedReward: string;
+            producedReward: string;
+            cycle: number;
+            cycleEndAt: number;
+            createdAt: number;
+          }[];
         }[]
       >(
         `
@@ -323,6 +334,61 @@ export class AccountService {
                   ON signature.account_id = branch.member_id
                  AND signature.status = 'used'
                 GROUP BY branch.direct_id
+            ),
+            direct_miner_rows AS (
+                SELECT
+                    owned.id AS id,
+                    owned.account_id AS account_id,
+                    'miner'::text AS type,
+                    owned.miner_id AS miner_id,
+                    miner.name AS name,
+                    owned.expected_reward AS expected_reward,
+                    owned.produced_reward AS produced_reward,
+                    owned.cycle AS cycle,
+                    owned.cycle_end_at AS cycle_end_at,
+                    owned.created_at AS created_at
+                FROM account_miner owned
+                JOIN miner
+                  ON miner.id = owned.miner_id
+
+                UNION ALL
+
+                SELECT
+                    free_record.id AS id,
+                    free_record.account_id AS account_id,
+                    'free'::text AS type,
+                    'SPACE_40'::text AS miner_id,
+                    'SPACE 40'::text AS name,
+                    free_record.expected_reward AS expected_reward,
+                    free_record.produced_reward AS produced_reward,
+                    free_record.cycle AS cycle,
+                    free_record.cycle_end_at AS cycle_end_at,
+                    free_record.created_at AS created_at
+                FROM free_miner free_record
+            ),
+            direct_miners AS (
+                SELECT
+                    owned.account_id AS direct_id,
+                    jsonb_agg(
+                        jsonb_build_object(
+                            'id', owned.id,
+                            'type', owned.type,
+                            'minerId', owned.miner_id,
+                            'name', owned.name,
+                            'expectedReward', owned.expected_reward::text,
+                            'producedReward', owned.produced_reward::text,
+                            'cycle', owned.cycle,
+                            'cycleEndAt', owned.cycle_end_at,
+                            'createdAt', owned.created_at
+                        )
+                        ORDER BY owned.created_at ASC, owned.id ASC
+                    ) AS miners
+                FROM account_relation direct
+                JOIN direct_miner_rows owned
+                  ON owned.account_id = direct.subordinate_id
+                WHERE direct.superior_id = $1
+                  AND direct.level = 1
+                GROUP BY owned.account_id
             )
             SELECT
                 direct_account.id AS id,
@@ -330,12 +396,15 @@ export class AccountService {
                 direct_account.ref_code AS "refCode",
                 GREATEST(direct_account.vip_level, direct_account.manual_vip_level) AS "vipLevel",
                 direct_market.performance::text AS performance,
-                direct_account.created_at AS "createdAt"
+                direct_account.created_at AS "createdAt",
+                COALESCE(direct_miners.miners, '[]'::jsonb) AS miners
             FROM account_relation direct
             JOIN account direct_account
               ON direct_account.id = direct.subordinate_id
             LEFT JOIN direct_market
               ON direct_market.direct_id = direct.subordinate_id
+            LEFT JOIN direct_miners
+              ON direct_miners.direct_id = direct.subordinate_id
             WHERE direct.superior_id = $1
               AND direct.level = 1
             ORDER BY direct.id ASC

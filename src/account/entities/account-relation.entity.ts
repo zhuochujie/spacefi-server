@@ -13,7 +13,7 @@ import { Account } from './account.entity';
 @Check('"superior_id" <> "subordinate_id"')
 @Index(['superiorId', 'subordinateId'], { unique: true })
 @Index(['superiorId', 'level'])
-@Index(['subordinateId', 'level'])
+@Index(['subordinateId', 'level'], { unique: true })
 export class AccountRelation {
   @PrimaryGeneratedColumn()
   id!: number;
