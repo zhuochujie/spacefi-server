@@ -7,56 +7,56 @@ import { PaymentToken } from '../enums/payment-token.enum';
 @Index(['accountId', 'minerId'])
 @Index(['status', 'deadline'])
 @Index(['accountId', 'minerId'], {
-    unique: true,
-    where: `"status" = 'pending'`,
+  unique: true,
+  where: `"status" = 'pending'`,
 })
 export class MinerPurchaseSignature {
-    @PrimaryGeneratedColumn()
-    id!: number;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-    @Column()
-    accountId!: number;
+  @Column()
+  accountId!: number;
 
-    @Column({ length: 42 })
-    buyer!: string;
+  @Column({ length: 42 })
+  buyer!: string;
 
-    @Column()
-    minerId!: string;
+  @Column()
+  minerId!: string;
 
-    @Column({ type: 'numeric', precision: 28, scale: 0 })
-    price!: string;
+  @Column({ type: 'numeric', precision: 28, scale: 0 })
+  price!: string;
 
-    @Column({ type: 'numeric', precision: 28, scale: 0 })
-    payValue!: string;
+  @Column({ type: 'numeric', precision: 28, scale: 0 })
+  payValue!: string;
 
-    @Column({ type: 'numeric', precision: 28, scale: 0 })
-    expectedReward!: string;
+  @Column({ type: 'numeric', precision: 28, scale: 0 })
+  expectedReward!: string;
 
-    @Column({
-        type: 'enum',
-        enum: PurchaseMethod,
-    })
-    method!: PurchaseMethod;
+  @Column({
+    type: 'enum',
+    enum: PurchaseMethod,
+  })
+  method!: PurchaseMethod;
 
-    @Column({ type: 'integer', default: PaymentToken.Space })
-    paymentToken!: PaymentToken;
+  @Column({ type: 'integer', default: PaymentToken.Space })
+  paymentToken!: PaymentToken;
 
-    @Column({ unique: true })
-    nonce!: string;
+  @Column({ unique: true })
+  nonce!: string;
 
-    @Column({ type: 'integer' })
-    deadline!: number;
+  @Column({ type: 'integer' })
+  deadline!: number;
 
-    @Column({ length: 132 })
-    signature!: string;
+  @Column({ length: 132 })
+  signature!: string;
 
-    @Column({
-        type: 'enum',
-        enum: MinerPurchaseSignatureStatus,
-        default: MinerPurchaseSignatureStatus.Pending,
-    })
-    status!: MinerPurchaseSignatureStatus;
+  @Column({
+    type: 'enum',
+    enum: MinerPurchaseSignatureStatus,
+    default: MinerPurchaseSignatureStatus.Pending,
+  })
+  status!: MinerPurchaseSignatureStatus;
 
-    @Column({ type: 'integer' })
-    createdAt!: number;
+  @Column({ type: 'integer' })
+  createdAt!: number;
 }

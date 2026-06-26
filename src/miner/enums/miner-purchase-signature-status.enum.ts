@@ -1,5 +1,5 @@
 export enum MinerPurchaseSignatureStatus {
-    Pending = 'pending',
-    Unused = 'unused',
-    Used = 'used',
+  Pending = 'pending',
+  Unused = 'unused',
+  Used = 'used',
 }

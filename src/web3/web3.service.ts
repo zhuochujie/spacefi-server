@@ -1,7 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CustomException } from 'src/common/custom.exception';
-import { PublicClient, verifyMessage, createPublicClient, http, parseEventLogs, keccak256, encodePacked, stringToBytes, createWalletClient, erc20Abi } from 'viem';
-import { market, mining, node, nodeFeeVault, signerPrivateKey, spaceToken, usdtToken, vipFeeVault } from './constants';
+import {
+  PublicClient,
+  verifyMessage,
+  createPublicClient,
+  http,
+  parseEventLogs,
+  keccak256,
+  encodePacked,
+  stringToBytes,
+  createWalletClient,
+  erc20Abi,
+} from 'viem';
+import {
+  market,
+  mining,
+  node,
+  nodeFeeVault,
+  signerPrivateKey,
+  spaceToken,
+  usdtToken,
+  vipFeeVault,
+} from './constants';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ConfigService } from 'src/config/config.service';
 import { bsc } from './bsc';
@@ -10,14 +30,12 @@ import { bsc } from './bsc';
 export class Web3Service {
   private readonly logger = new Logger(Web3Service.name, { timestamp: true });
 
-  constructor(
-    private readonly configService: ConfigService,
-  ) { }
+  constructor(private readonly configService: ConfigService) {}
 
   // 构建客户端
   publicClient: PublicClient = createPublicClient({
     chain: bsc,
-    transport: http()
+    transport: http(),
   });
 
   async accountVerify(address: string, message: string, signature: string) {
@@ -34,14 +52,11 @@ export class Web3Service {
 
   async sign(types: string[], values: any[]) {
     const account = privateKeyToAccount(signerPrivateKey);
-    const messageHash = keccak256(
-      encodePacked(
-        types,
-        values
-      )
-    )
-    
-    const signature = await account.signMessage({ message: { raw: messageHash } })
+    const messageHash = keccak256(encodePacked(types, values));
+
+    const signature = await account.signMessage({
+      message: { raw: messageHash },
+    });
     return signature;
   }
 
@@ -53,7 +68,7 @@ export class Web3Service {
     nonce: string,
     deadline: number,
   ) {
-    const CLAIM_REWARD_ACTION = keccak256(stringToBytes('CLAIM_REWARD'))
+    const CLAIM_REWARD_ACTION = keccak256(stringToBytes('CLAIM_REWARD'));
     const value = [
       CLAIM_REWARD_ACTION,
       mining.address,
@@ -66,10 +81,20 @@ export class Web3Service {
       deadline,
     ];
     const signature = await this.sign(
-      ['bytes32', 'address', 'uint256', 'address', 'uint256', 'uint256', 'uint256', 'bytes32', 'uint256'],
-      value
+      [
+        'bytes32',
+        'address',
+        'uint256',
+        'address',
+        'uint256',
+        'uint256',
+        'uint256',
+        'bytes32',
+        'uint256',
+      ],
+      value,
     );
-    return { value, signature }
+    return { value, signature };
   }
 
   async signWithdrawUsdt(
@@ -89,22 +114,28 @@ export class Web3Service {
       deadline,
     ];
     const signature = await this.sign(
-      ['bytes32', 'address', 'uint256', 'address', 'uint256', 'bytes32', 'uint256'],
+      [
+        'bytes32',
+        'address',
+        'uint256',
+        'address',
+        'uint256',
+        'bytes32',
+        'uint256',
+      ],
       value,
     );
     return { value, signature };
   }
 
-  async signFeeExempt(
-    user: string,
-  ) {
+  async signFeeExempt(user: string) {
     const nonce = await this.publicClient.readContract({
       address: market.address,
       abi: market.abi,
       functionName: 'feeExemptNonces',
       args: [user as `0x${string}`],
     });
-    const SET_FEE_EXEMPT_ACTION = keccak256(stringToBytes('SET_FEE_EXEMPT'))
+    const SET_FEE_EXEMPT_ACTION = keccak256(stringToBytes('SET_FEE_EXEMPT'));
     const value = [
       SET_FEE_EXEMPT_ACTION,
       market.address,
@@ -115,9 +146,9 @@ export class Web3Service {
     ];
     const signature = await this.sign(
       ['bytes32', 'address', 'uint256', 'address', 'bool', 'uint256'],
-      value
+      value,
     );
-    return { value, signature, nonce: nonce.toString() }
+    return { value, signature, nonce: nonce.toString() };
   }
 
   async signPurchaseMiner(
@@ -128,7 +159,7 @@ export class Web3Service {
     expectedReward: string,
     paymentToken: number,
     nonce: string,
-    deadline: number
+    deadline: number,
   ) {
     const PURCHASE_MINER_ACTION = keccak256(stringToBytes('PURCHASE_MINER'));
     const value = [
@@ -142,13 +173,25 @@ export class Web3Service {
       expectedReward,
       paymentToken,
       keccak256(stringToBytes(nonce)),
-      deadline
+      deadline,
     ];
     const signature = await this.sign(
-      ['bytes32', 'address', 'uint256', 'address', 'bytes32', 'uint256', 'uint256', 'uint256', 'uint8', 'bytes32', 'uint256'],
-      value
+      [
+        'bytes32',
+        'address',
+        'uint256',
+        'address',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint8',
+        'bytes32',
+        'uint256',
+      ],
+      value,
     );
-    return { value, signature }
+    return { value, signature };
   }
 
   async getPurchaseMinerNoncesUsed(nonces: string[]): Promise<boolean[]> {
@@ -157,7 +200,7 @@ export class Web3Service {
     }
 
     const results = await this.publicClient.multicall({
-      contracts: nonces.map(nonce => ({
+      contracts: nonces.map((nonce) => ({
         address: mining.address,
         abi: mining.abi,
         functionName: 'usedPurchaseNonces',
@@ -175,7 +218,7 @@ export class Web3Service {
     }
 
     const results = await this.publicClient.multicall({
-      contracts: nonces.map(nonce => ({
+      contracts: nonces.map((nonce) => ({
         address: mining.address,
         abi: mining.abi,
         functionName: 'usedClaimNonces',
@@ -193,7 +236,7 @@ export class Web3Service {
     }
 
     const results = await this.publicClient.multicall({
-      contracts: nonces.map(nonce => ({
+      contracts: nonces.map((nonce) => ({
         address: mining.address,
         abi: mining.abi,
         functionName: 'usedWithdrawUsdtNonces',
@@ -226,57 +269,68 @@ export class Web3Service {
     const walletClient = createWalletClient({
       account,
       chain: bsc,
-      transport: http()
-    })
+      transport: http(),
+    });
 
-    const [vipFeeVaultSpaceBalance, nodeFeeVaultSpaceBalance, nodeFeeVaultUsdtBalance] = await this.publicClient.multicall({
+    const [
+      vipFeeVaultSpaceBalance,
+      nodeFeeVaultSpaceBalance,
+      nodeFeeVaultUsdtBalance,
+    ] = await this.publicClient.multicall({
       contracts: [
         {
           address: spaceToken,
           abi: erc20Abi,
           functionName: 'balanceOf',
-          args: [vipFeeVault]
-        },{
+          args: [vipFeeVault],
+        },
+        {
           address: spaceToken,
           abi: erc20Abi,
           functionName: 'balanceOf',
-          args: [nodeFeeVault]
-        },{
+          args: [nodeFeeVault],
+        },
+        {
           address: usdtToken,
           abi: erc20Abi,
           functionName: 'balanceOf',
-          args: [nodeFeeVault]
-        }
+          args: [nodeFeeVault],
+        },
       ],
-      allowFailure: false
-    })
+      allowFailure: false,
+    });
 
     const usdtDividendFeeBp = await this.configService.getUsdtDividendFeeBp();
-    const usdtFee = nodeFeeVaultUsdtBalance * usdtDividendFeeBp / 10000n;
+    const usdtFee = (nodeFeeVaultUsdtBalance * usdtDividendFeeBp) / 10000n;
     const toMiner = nodeFeeVaultUsdtBalance - usdtFee;
-    
+
     const { request } = await this.publicClient.simulateContract({
       account,
       address: mining.address,
       abi: mining.abi,
       functionName: 'dividend',
-      args: [vipFeeVaultSpaceBalance, nodeFeeVaultSpaceBalance, toMiner, usdtFee]
+      args: [
+        vipFeeVaultSpaceBalance,
+        nodeFeeVaultSpaceBalance,
+        toMiner,
+        usdtFee,
+      ],
     });
     const receipt = await walletClient.writeContractSync(request);
     this.logger.log(`分红Hash:${receipt.transactionHash}`);
 
     return {
-      vipFeeVaultSpaceBalance, 
-      nodeFeeVaultSpaceBalance, 
-      nodeFeeVaultUsdtBalance: toMiner
-    }
+      vipFeeVaultSpaceBalance,
+      nodeFeeVaultSpaceBalance,
+      nodeFeeVaultUsdtBalance: toMiner,
+    };
   }
 
   private async withRetry<T>(
     fn: () => Promise<T>,
     maxRetries = 3,
     delayMs = 3000,
-    onFail?: Function
+    onFail?: Function,
   ): Promise<T> {
     let lastError: Error;
 
@@ -293,14 +347,12 @@ export class Web3Service {
         if (attempt === maxRetries) {
           try {
             onFail?.(); // ✅ 这里调用
-          } catch (error) {
-
-          }
+          } catch (error) {}
           throw lastError;
         }
 
         this.logger.log(`操作失败，第 ${attempt + 1} 次重试`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
 
@@ -311,32 +363,37 @@ export class Web3Service {
     const onFail = (hash: string) => {
       // fetch(`https://api.day.app/pT8EThsAeMqa7d6Yg4DCJ8/Hash处理失败/${hash}`)
       // sendMessage('8579285388:AAEix3_ZBa3d04yyGdzvTYON93IliWK_RnE', '1875011696', `Hash处理失败\n<code>${hash}</code>`)
-    }
-    return this.withRetry(async () => {
-      const receipt = await this.publicClient.getTransactionReceipt({
-        hash: hash as `0x${string}`
-      });
+    };
+    return this.withRetry(
+      async () => {
+        const receipt = await this.publicClient.getTransactionReceipt({
+          hash: hash as `0x${string}`,
+        });
 
-      const marketLogs = receipt.logs.filter(
-        (log) => log.address.toLowerCase() === market.address.toLowerCase(),
-      );
+        const marketLogs = receipt.logs.filter(
+          (log) => log.address.toLowerCase() === market.address.toLowerCase(),
+        );
 
-      const logs = parseEventLogs({
-        abi: market.abi,
-        logs: marketLogs,
-        eventName: ['OrderPlaced', 'OrderFilled', 'OrderCancelled'],
-      });
+        const logs = parseEventLogs({
+          abi: market.abi,
+          logs: marketLogs,
+          eventName: ['OrderPlaced', 'OrderFilled', 'OrderCancelled'],
+        });
 
-      if (logs.length === 0) {
-        this.logger.warn('未找到市场订单事件');
+        if (logs.length === 0) {
+          this.logger.warn('未找到市场订单事件');
 
-        throw new CustomException('MARKET_EVENT_NOT_FOUND', 400);
-      }
+          throw new CustomException('MARKET_EVENT_NOT_FOUND', 400);
+        }
 
-      return logs;
-    }, 3, 3000, () => {
-      onFail(hash);
-    });
+        return logs;
+      },
+      3,
+      3000,
+      () => {
+        onFail(hash);
+      },
+    );
   }
 
   async getFreeMinerClaimEvent(hash: string) {
@@ -369,7 +426,9 @@ export class Web3Service {
         throw new CustomException('FREE_MINER_EVENT_NOT_FOUND', 400);
       }
 
-      const blockTimestamp = Number((await this.publicClient.getBlock({ blockNumber })).timestamp);
+      const blockTimestamp = Number(
+        (await this.publicClient.getBlock({ blockNumber })).timestamp,
+      );
 
       return {
         account: logs[0].args.account.toLowerCase(),

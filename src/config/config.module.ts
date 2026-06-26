@@ -6,9 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DividendRule } from './entities/dividend-rule.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Config, DividendRule]),
-  ],
+  imports: [TypeOrmModule.forFeature([Config, DividendRule])],
   controllers: [ConfigController],
   providers: [ConfigService],
   exports: [ConfigService],

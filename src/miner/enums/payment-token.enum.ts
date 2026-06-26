@@ -1,4 +1,4 @@
 export enum PaymentToken {
-    Space = 0,
-    Usdt = 1,
+  Space = 0,
+  Usdt = 1,
 }

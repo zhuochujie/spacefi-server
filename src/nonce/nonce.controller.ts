@@ -5,7 +5,7 @@ import { AddressParamDto } from './dto/address-param.dto';
 
 @Controller('nonce')
 export class NonceController {
-  constructor(private readonly nonceService: NonceService) { }
+  constructor(private readonly nonceService: NonceService) {}
 
   @Public()
   @Get('/:address')

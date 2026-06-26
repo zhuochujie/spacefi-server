@@ -142,9 +142,7 @@ export class MinerService {
           name: true,
         },
       });
-      const existingMinerIds = new Set(
-        existingMiners.map((miner) => miner.id),
-      );
+      const existingMinerIds = new Set(existingMiners.map((miner) => miner.id));
       const existingMinerNames = new Set(
         existingMiners.map((miner) => miner.name),
       );

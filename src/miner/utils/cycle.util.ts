@@ -12,7 +12,7 @@ const BEIJING_OFFSET_SECONDS = 8 * 3600;
 export function startOfBeijingDay(timestamp: number) {
   return (
     Math.floor((timestamp + BEIJING_OFFSET_SECONDS) / DAY_SECONDS) *
-    DAY_SECONDS -
+      DAY_SECONDS -
     BEIJING_OFFSET_SECONDS
   );
 }

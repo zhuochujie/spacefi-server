@@ -1,6 +1,9 @@
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { AccountBalanceLogToken, AccountBalanceLogType } from '../entities/account-balance-log.entity';
+import {
+  AccountBalanceLogToken,
+  AccountBalanceLogType,
+} from '../entities/account-balance-log.entity';
 
 export class BalanceLogQueryDto {
   @Type(() => Number)

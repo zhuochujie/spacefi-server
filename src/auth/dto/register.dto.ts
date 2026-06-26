@@ -8,11 +8,15 @@ import {
 } from 'class-validator';
 
 export class RegisterDto {
-  @Transform(({ value }) => typeof value === 'string' ? value.toLowerCase().trim() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   @IsEthereumAddress()
   address!: string;
 
-  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase().trim() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase().trim() : value,
+  )
   @IsString()
   @Length(8, 8)
   @Matches(/^[A-Z0-9]+$/)

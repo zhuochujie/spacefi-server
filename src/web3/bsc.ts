@@ -1,5 +1,5 @@
-import { defineChain } from "viem";
-import { requiredEnv } from "src/common/env.util";
+import { defineChain } from 'viem';
+import { requiredEnv } from 'src/common/env.util';
 
 export const bsc = /*#__PURE__*/ defineChain({
   id: 56,
@@ -26,8 +26,7 @@ export const bsc = /*#__PURE__*/ defineChain({
       blockCreated: 15921452,
     },
   },
-})
-
+});
 
 export const bscTestnet = /*#__PURE__*/ defineChain({
   id: 97,
@@ -54,4 +53,4 @@ export const bscTestnet = /*#__PURE__*/ defineChain({
     },
   },
   testnet: true,
-})
+});
