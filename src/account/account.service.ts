@@ -37,6 +37,38 @@ export class AccountService {
   private readonly logger = new Logger(AccountService.name);
   private static readonly DIVIDEND_FALLBACK_ACCOUNT_ADDRESS =
     '0x0000000000000000000000000000000000000000';
+  private static readonly INTERNAL_ACCOUNTS = [
+    {
+      address: '0x0000000000000000000000000000000000000000'.toLowerCase(),
+      refCode: '00000000',
+      nodeLevel: 0,
+    },
+    {
+      address: '0x3b6752438d1c870d9c2306ebaf97e5af26ddf4ac'.toLowerCase(),
+      refCode: 'O8JA83KI',
+      nodeLevel: 4,
+    },
+    {
+      address: '0xc91e55901E0B3f473973938F40183e068f5924e0'.toLowerCase(),
+      refCode: 'H7078Y41',
+      nodeLevel: 4,
+    },
+    {
+      address: '0x2410120A65E1aBc7dF813C98625cb20fd27B3405'.toLowerCase(),
+      refCode: '4DT41P4Q',
+      nodeLevel: 4,
+    },
+    {
+      address: '0xA81422954B5A99e6A97d49D74e17Ed32A3db9D0e'.toLowerCase(),
+      refCode: 'M27KQOBT',
+      nodeLevel: 4,
+    },
+    {
+      address: '0xe09D5AC56d0EEA86C814965279f3560DAF0F918D'.toLowerCase(),
+      refCode: 'ULD03368',
+      nodeLevel: 4,
+    },
+  ] as const;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -46,44 +78,12 @@ export class AccountService {
 
   async initializeDefaults() {
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const internalAccounts = [
-      {
-        address: '0x0000000000000000000000000000000000000000'.toLowerCase(),
-        refCode: '00000000',
-        nodeLevel: 0,
+    const internalAccounts = AccountService.INTERNAL_ACCOUNTS.map(
+      (account) => ({
+        ...account,
         createdAt: currentTimestamp,
-      },
-      {
-        address: '0x3b6752438d1c870d9c2306ebaf97e5af26ddf4ac'.toLowerCase(),
-        refCode: 'O8JA83KI',
-        nodeLevel: 4,
-        createdAt: currentTimestamp,
-      },
-      {
-        address: '0xc91e55901E0B3f473973938F40183e068f5924e0'.toLowerCase(),
-        refCode: 'H7078Y41',
-        nodeLevel: 4,
-        createdAt: currentTimestamp,
-      },
-      {
-        address: '0x2410120A65E1aBc7dF813C98625cb20fd27B3405'.toLowerCase(),
-        refCode: '4DT41P4Q',
-        nodeLevel: 4,
-        createdAt: currentTimestamp,
-      },
-      {
-        address: '0xA81422954B5A99e6A97d49D74e17Ed32A3db9D0e'.toLowerCase(),
-        refCode: 'M27KQOBT',
-        nodeLevel: 4,
-        createdAt: currentTimestamp,
-      },
-      {
-        address: '0xe09D5AC56d0EEA86C814965279f3560DAF0F918D'.toLowerCase(),
-        refCode: 'ULD03368',
-        nodeLevel: 4,
-        createdAt: currentTimestamp,
-      },
-    ];
+      }),
+    );
 
     await this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
@@ -149,11 +149,12 @@ export class AccountService {
         throw new NotFoundException('REF_CODE_NOT_FOUND');
       }
 
-      const recommenderHasPurchasedMiner = await this.hasPurchasedMiner(
+      const recommenderCanInvite = await this.canInvite(
         recommender.id,
+        recommender.address,
         manager,
       );
-      if (!recommenderHasPurchasedMiner) {
+      if (!recommenderCanInvite) {
         throw new BadRequestException('INVALID_REF_CODE');
       }
 
@@ -206,6 +207,25 @@ export class AccountService {
     return manager.getRepository(AccountMiner).exists({
       where: { accountId },
     });
+  }
+
+  isInternalAccount(address: string): boolean {
+    const normalizedAddress = address.toLowerCase();
+    return AccountService.INTERNAL_ACCOUNTS.some(
+      (account) => account.address === normalizedAddress,
+    );
+  }
+
+  async canInvite(
+    accountId: number,
+    address: string,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<boolean> {
+    if (this.isInternalAccount(address)) {
+      return true;
+    }
+
+    return this.hasPurchasedMiner(accountId, manager);
   }
 
   async syncNodeLevel(address: string) {
