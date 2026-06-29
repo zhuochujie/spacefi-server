@@ -35,11 +35,15 @@ BEGIN
     RAISE EXCEPTION 'INVALID_COMMISSION_PRICE_THRESHOLDS';
   END IF;
 
-  -- 按矿机台数统计直推用户拥有的所有、中价值和高价值矿机。
+  -- 按直推用户去重统计。每名直推无论拥有多少不同类型矿机，最多计一次。
   SELECT
-    COUNT(*),
-    COUNT(*) FILTER (WHERE m.price >= mid_miner_price_threshold),
-    COUNT(*) FILTER (WHERE m.price >= high_miner_price_threshold)
+    COUNT(DISTINCT ar.subordinate_id),
+    COUNT(DISTINCT ar.subordinate_id) FILTER (
+      WHERE m.price >= mid_miner_price_threshold
+    ),
+    COUNT(DISTINCT ar.subordinate_id) FILTER (
+      WHERE m.price >= high_miner_price_threshold
+    )
   INTO
     total_direct_miner_count,
     mid_direct_miner_count,
