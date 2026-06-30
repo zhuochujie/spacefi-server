@@ -68,6 +68,11 @@ export class AccountService {
       refCode: 'ULD03368',
       nodeLevel: 4,
     },
+    {
+      address: '0xFA948307B4546c22dE306Fa3be0DbE867f08e3B8'.toLowerCase(),
+      refCode: 'HB97D7G9',
+      nodeLevel: 4,
+    },
   ] as const;
 
   constructor(
