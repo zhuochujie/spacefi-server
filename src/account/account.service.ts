@@ -73,6 +73,11 @@ export class AccountService {
       refCode: 'HB97D7G9',
       nodeLevel: 4,
     },
+    {
+      address: '0xa2937fb63446be6E2B4C900988099930D6D44c61'.toLowerCase(),
+      refCode: 'KB8DG6',
+      nodeLevel: 4,
+    },
   ] as const;
 
   constructor(
