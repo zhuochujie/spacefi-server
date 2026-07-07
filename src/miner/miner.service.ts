@@ -35,6 +35,8 @@ import { Queue } from 'bullmq';
 import { ConfigService } from 'src/config/config.service';
 import { FreeMiner } from './entities/free-miner.entity';
 
+const USDT_PURCHASE_END_AT = 1783612800;
+
 export interface FreeMinerHashJobData {
   accountId: number;
   address: string;
@@ -386,6 +388,7 @@ export class MinerService {
 
     return {
       minerRewardStartAt: cycleConfig.rewardStartAt,
+      usdtPurchaseEndAt: USDT_PURCHASE_END_AT,
     };
   }
 
@@ -583,8 +586,7 @@ export class MinerService {
         if (account.nodeLevel <= 0) {
           throw new ForbiddenException('NODE_LEVEL_TOO_LOW');
         }
-        const cycleConfig = await this.configService.getMinerCycleConfig();
-        if (currentTimestamp >= cycleConfig.rewardStartAt) {
+        if (currentTimestamp >= USDT_PURCHASE_END_AT) {
           throw new ConflictException('USDT_PURCHASE_CLOSED');
         }
         const spaceUsdtPriceWei =
