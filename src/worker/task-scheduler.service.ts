@@ -14,7 +14,7 @@ export class TaskSchedulerService {
     private readonly telegramNotificationService: TelegramNotificationService,
   ) {}
 
-  @Cron('0 30 0 * * *', { timeZone: 'Asia/Shanghai' })
+  @Cron('30 0 * * *', { timeZone: 'Asia/Shanghai' })
   recomputeVipLevels() {
     return this.runTask('recompute-vip-levels', () =>
       this.accountService.recomputeVipLevelsSnapshot(),
