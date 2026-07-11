@@ -719,6 +719,11 @@ export class MinerService {
         this.logger.error(`复投的时候未出局`);
         throw new CustomException('UNKNOWN_ERROR', 500);
       }
+      accountMiner.cycle = Math.min(
+        accountMiner.cycle + cycleConfig.minerExtendedPerCycle,
+        cycleConfig.maxCycle,
+      );
+
       // 修改
       accountMiner.expectedReward = (
         BigInt(accountMiner.expectedReward) + BigInt(expectedReward)
