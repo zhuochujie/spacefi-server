@@ -28,7 +28,7 @@ export class TaskSchedulerService {
     );
   }
 
-  @Cron(CronExpression.EVERY_WEEK, { timeZone: 'Asia/Shanghai' })
+  @Cron('5 0 * * 1', { timeZone: 'Asia/Shanghai' })
   dividend() {
     return this.runTask(
       'dividend',

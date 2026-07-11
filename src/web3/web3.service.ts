@@ -316,7 +316,10 @@ export class Web3Service {
         usdtFee,
       ],
     });
-    const receipt = await walletClient.writeContractSync(request);
+    const hash = await walletClient.writeContract(request);
+    const receipt = await this.publicClient.waitForTransactionReceipt({
+      hash,
+    });
     this.logger.log(`分红Hash:${receipt.transactionHash}`);
 
     return {
