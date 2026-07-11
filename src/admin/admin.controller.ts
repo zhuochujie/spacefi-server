@@ -28,6 +28,7 @@ import { AdminUpdateNoticeDto } from './dto/admin-update-notice.dto';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAction } from 'src/notification/admin-action.decorator';
+import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 
 @Admin()
 @Controller('admin')
@@ -174,5 +175,19 @@ export class AdminController {
   @Get('users/:accountId/miners')
   getUserMiners(@Param('accountId', ParseIntPipe) accountId: number) {
     return this.adminService.getUserMiners(accountId);
+  }
+
+  @Post('users/:accountId/miners/:accountMinerId/accelerate')
+  @AdminAction('加速用户矿机')
+  accelerateUserMiner(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Param('accountMinerId', ParseIntPipe) accountMinerId: number,
+    @Body() dto: AdminAccelerateMinerDto,
+  ) {
+    return this.adminService.accelerateUserMiner(
+      accountId,
+      accountMinerId,
+      dto,
+    );
   }
 }

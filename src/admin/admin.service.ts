@@ -41,6 +41,7 @@ import { MinerPurchaseSignatureStatus } from 'src/miner/enums/miner-purchase-sig
 import { Miner } from 'src/miner/entities/miner.entity';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
+import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 
 @Injectable()
 export class AdminService {
@@ -68,7 +69,7 @@ export class AdminService {
       WITH team_stats AS (
         SELECT
           relation.superior_id AS account_id,
-          COUNT(*)::integer AS team_count,
+          COUNT(DISTINCT relation.subordinate_id)::integer AS team_count,
           COALESCE(SUM(signature.price), 0)::text AS team_performance
         FROM account_relation relation
         LEFT JOIN miner_purchase_signature signature
@@ -703,6 +704,30 @@ export class AdminService {
       minerReward: rewardMap.get(AccountBalanceLogType.MinerReward) ?? '0',
       teamReward: rewardMap.get(AccountBalanceLogType.TeamReward) ?? '0',
     };
+  }
+
+  async accelerateUserMiner(
+    accountId: number,
+    accountMinerId: number,
+    dto: AdminAccelerateMinerDto,
+  ) {
+    const accountMinerRepository = this.dataSource.getRepository(AccountMiner);
+    const accountMiner = await accountMinerRepository.findOne({
+      where: {
+        id: accountMinerId,
+        accountId,
+      },
+    });
+    if (!accountMiner) {
+      throw new NotFoundException('ACCOUNT_MINER_NOT_FOUND');
+    }
+
+    await this.dataSource.query(
+      'CALL accelerate_account_miner_reward($1, $2)',
+      [accountMinerId, dto.amount],
+    );
+
+    return this.getUserMiners(accountId);
   }
 
   private validateDividendRuleGroupUpdate(
