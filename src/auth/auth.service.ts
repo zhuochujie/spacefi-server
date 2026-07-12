@@ -98,11 +98,6 @@ export class AuthService {
       throw new UnauthorizedException('UNAUTHORIZED');
     }
 
-    const canInvite = await this.accountService.canInvite(
-      account.id,
-      account.address,
-    );
-
     return {
       id: account.id,
       address: account.address,
@@ -111,7 +106,7 @@ export class AuthService {
       nodeLevel: account.nodeLevel,
       balance: account.balance,
       usdtBalance: account.usdtBalance,
-      canInvite,
+      canInvite: true,
       createdAt: account.createdAt,
     };
   }
