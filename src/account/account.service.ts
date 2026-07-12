@@ -159,6 +159,15 @@ export class AccountService {
         throw new NotFoundException('REF_CODE_NOT_FOUND');
       }
 
+      const recommenderCanInvite = await this.canInvite(
+        recommender.id,
+        recommender.address,
+        manager,
+      );
+      if (!recommenderCanInvite) {
+        throw new BadRequestException('INVALID_REF_CODE');
+      }
+
       let nodeLevel: number;
       try {
         nodeLevel = await this.web3Service.getNodeLevel(
@@ -199,6 +208,34 @@ export class AccountService {
 
       return account;
     });
+  }
+
+  async hasPurchasedMiner(
+    accountId: number,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<boolean> {
+    return manager.getRepository(AccountMiner).exists({
+      where: { accountId },
+    });
+  }
+
+  isInternalAccount(address: string): boolean {
+    const normalizedAddress = address.toLowerCase();
+    return AccountService.INTERNAL_ACCOUNTS.some(
+      (account) => account.address === normalizedAddress,
+    );
+  }
+
+  async canInvite(
+    accountId: number,
+    address: string,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<boolean> {
+    if (this.isInternalAccount(address)) {
+      return true;
+    }
+
+    return this.hasPurchasedMiner(accountId, manager);
   }
 
   async syncNodeLevel(address: string) {
