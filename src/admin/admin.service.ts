@@ -42,6 +42,7 @@ import { Miner } from 'src/miner/entities/miner.entity';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
+import { AdminAddUsdtSystemRewardDto } from './dto/admin-add-usdt-system-reward.dto';
 
 @Injectable()
 export class AdminService {
@@ -704,6 +705,49 @@ export class AdminService {
       minerReward: rewardMap.get(AccountBalanceLogType.MinerReward) ?? '0',
       teamReward: rewardMap.get(AccountBalanceLogType.TeamReward) ?? '0',
     };
+  }
+
+  async addUserUsdtSystemReward(
+    accountId: number,
+    dto: AdminAddUsdtSystemRewardDto,
+  ) {
+    return await this.dataSource.transaction(async (manager) => {
+      const accountRepository = manager.getRepository(Account);
+      const balanceLogRepository = manager.getRepository(AccountBalanceLog);
+      const account = await accountRepository.findOne({
+        where: { id: accountId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!account) {
+        throw new NotFoundException('ACCOUNT_NOT_FOUND');
+      }
+
+      const rewardAmount = BigInt(dto.amount);
+      const balanceBefore = account.usdtBalance;
+      account.usdtBalance = (
+        BigInt(account.usdtBalance) + rewardAmount
+      ).toString();
+
+      await accountRepository.save(account);
+      await balanceLogRepository.save(
+        balanceLogRepository.create({
+          accountId: account.id,
+          type: AccountBalanceLogType.SystemReward,
+          token: AccountBalanceLogToken.Usdt,
+          amount: rewardAmount.toString(),
+          balanceBefore,
+          balanceAfter: account.usdtBalance,
+          createdAt: Math.floor(Date.now() / 1000),
+        }),
+      );
+
+      return {
+        id: account.id,
+        address: account.address,
+        usdtBalance: account.usdtBalance,
+      };
+    });
   }
 
   async accelerateUserMiner(

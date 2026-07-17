@@ -29,6 +29,7 @@ import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAction } from 'src/notification/admin-action.decorator';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
+import { AdminAddUsdtSystemRewardDto } from './dto/admin-add-usdt-system-reward.dto';
 
 @Admin()
 @Controller('admin')
@@ -170,6 +171,15 @@ export class AdminController {
     @Query() query: BalanceLogQueryDto,
   ) {
     return this.adminService.getUserBalanceLogs(accountId, query);
+  }
+
+  @Post('users/:accountId/usdt-system-reward')
+  @AdminAction('增加USDT系统奖励')
+  addUserUsdtSystemReward(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Body() dto: AdminAddUsdtSystemRewardDto,
+  ) {
+    return this.adminService.addUserUsdtSystemReward(accountId, dto);
   }
 
   @Get('users/:accountId/miners')
