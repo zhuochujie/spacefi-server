@@ -6,6 +6,7 @@ import {
 import { AccountService } from './account.service';
 import { BalanceLogQueryDto } from './dto/balance-log-query.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
+import { MaintenanceBlocked } from 'src/maintenance/maintenance-blocked.decorator';
 
 @Controller('account')
 export class AccountController {
@@ -45,6 +46,7 @@ export class AccountController {
   }
 
   @Post('withdraw')
+  @MaintenanceBlocked()
   async withdraw(
     @CurrentAccount() account: JwtAccount,
     @Body() withdrawDto: WithdrawDto,
@@ -56,6 +58,7 @@ export class AccountController {
   }
 
   @Post('withdraw-usdt')
+  @MaintenanceBlocked()
   async withdrawUsdt(
     @CurrentAccount() account: JwtAccount,
     @Body() withdrawDto: WithdrawDto,

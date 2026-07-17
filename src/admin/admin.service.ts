@@ -42,7 +42,7 @@ import { Miner } from 'src/miner/entities/miner.entity';
 import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
-import { AdminAddUsdtSystemRewardDto } from './dto/admin-add-usdt-system-reward.dto';
+import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 
 @Injectable()
 export class AdminService {
@@ -707,9 +707,9 @@ export class AdminService {
     };
   }
 
-  async addUserUsdtSystemReward(
+  async addUserSystemReward(
     accountId: number,
-    dto: AdminAddUsdtSystemRewardDto,
+    dto: AdminAddSystemRewardDto,
   ) {
     return await this.dataSource.transaction(async (manager) => {
       const accountRepository = manager.getRepository(Account);
@@ -724,9 +724,11 @@ export class AdminService {
       }
 
       const rewardAmount = BigInt(dto.amount);
-      const balanceBefore = account.usdtBalance;
-      account.usdtBalance = (
-        BigInt(account.usdtBalance) + rewardAmount
+      const balanceField =
+        dto.token === AccountBalanceLogToken.Usdt ? 'usdtBalance' : 'balance';
+      const balanceBefore = account[balanceField];
+      account[balanceField] = (
+        BigInt(account[balanceField]) + rewardAmount
       ).toString();
 
       await accountRepository.save(account);
@@ -734,10 +736,10 @@ export class AdminService {
         balanceLogRepository.create({
           accountId: account.id,
           type: AccountBalanceLogType.SystemReward,
-          token: AccountBalanceLogToken.Usdt,
+          token: dto.token,
           amount: rewardAmount.toString(),
           balanceBefore,
-          balanceAfter: account.usdtBalance,
+          balanceAfter: account[balanceField],
           createdAt: Math.floor(Date.now() / 1000),
         }),
       );
@@ -745,6 +747,7 @@ export class AdminService {
       return {
         id: account.id,
         address: account.address,
+        balance: account.balance,
         usdtBalance: account.usdtBalance,
       };
     });

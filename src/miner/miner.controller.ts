@@ -9,6 +9,7 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { SubmitNonceDto } from './dto/submit-nonce.dto';
 import { NonceParamDto } from './dto/nonce-param.dto';
 import { SubmitFreeMinerHashDto } from './dto/submit-free-miner-hash.dto';
+import { MaintenanceBlocked } from 'src/maintenance/maintenance-blocked.decorator';
 
 @Controller('miner')
 export class MinerController {
@@ -53,6 +54,7 @@ export class MinerController {
   }
 
   @Post('purchase')
+  @MaintenanceBlocked()
   async purchaseMiner(
     @CurrentAccount() account: JwtAccount,
     @Body() purchaseMinerDto: PurchaseMinerDto,
@@ -82,6 +84,7 @@ export class MinerController {
   }
 
   @Post('free/claim-reward')
+  @MaintenanceBlocked()
   claimFreeMinerReward(@CurrentAccount() account: JwtAccount) {
     return this.minerService.claimFreeMinerReward(account.sub);
   }

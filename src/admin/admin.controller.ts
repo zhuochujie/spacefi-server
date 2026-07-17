@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { Admin } from 'src/common/decorators/admin.decorator';
 import {
@@ -29,12 +30,17 @@ import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAction } from 'src/notification/admin-action.decorator';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
-import { AdminAddUsdtSystemRewardDto } from './dto/admin-add-usdt-system-reward.dto';
+import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
+import { MaintenanceService } from 'src/maintenance/maintenance.service';
+import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
 @Admin()
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly maintenanceService: MaintenanceService,
+  ) {}
 
   @Get('profile')
   getProfile(@CurrentAccount() account: AdminJwtAccount) {
@@ -57,6 +63,17 @@ export class AdminController {
   @Get('configs')
   getConfigs() {
     return this.adminService.getConfigs();
+  }
+
+  @Get('maintenance')
+  getMaintenance() {
+    return this.maintenanceService.getState();
+  }
+
+  @Put('maintenance')
+  @AdminAction('修改系统维护状态')
+  updateMaintenance(@Body() dto: UpdateMaintenanceDto) {
+    return this.maintenanceService.setEnabled(dto.enabled);
   }
 
   @Get('miners')
@@ -173,13 +190,13 @@ export class AdminController {
     return this.adminService.getUserBalanceLogs(accountId, query);
   }
 
-  @Post('users/:accountId/usdt-system-reward')
-  @AdminAction('增加USDT系统奖励')
-  addUserUsdtSystemReward(
+  @Post('users/:accountId/system-reward')
+  @AdminAction('增加系统奖励')
+  addUserSystemReward(
     @Param('accountId', ParseIntPipe) accountId: number,
-    @Body() dto: AdminAddUsdtSystemRewardDto,
+    @Body() dto: AdminAddSystemRewardDto,
   ) {
-    return this.adminService.addUserUsdtSystemReward(accountId, dto);
+    return this.adminService.addUserSystemReward(accountId, dto);
   }
 
   @Get('users/:accountId/miners')
