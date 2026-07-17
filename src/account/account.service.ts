@@ -31,6 +31,7 @@ import { CustomException } from 'src/common/custom.exception';
 import { ConfigService } from 'src/config/config.service';
 import { DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
 import { AccountMiner } from 'src/miner/entities/account-miner.entity';
+import { FreeMiner } from 'src/miner/entities/free-miner.entity';
 
 @Injectable()
 export class AccountService {
@@ -75,7 +76,7 @@ export class AccountService {
     },
     {
       address: '0xa2937fb63446be6E2B4C900988099930D6D44c61'.toLowerCase(),
-      refCode: 'KB8DG6',
+      refCode: 'KB8DG6HY',
       nodeLevel: 4,
     },
   ] as const;
@@ -210,13 +211,20 @@ export class AccountService {
     });
   }
 
-  async hasPurchasedMiner(
+  async hasInviteEligibleMiner(
     accountId: number,
     manager: EntityManager = this.dataSource.manager,
   ): Promise<boolean> {
-    return manager.getRepository(AccountMiner).exists({
-      where: { accountId },
-    });
+    const [hasPaidMiner, hasFreeMiner] = await Promise.all([
+      manager.getRepository(AccountMiner).exists({
+        where: { accountId },
+      }),
+      manager.getRepository(FreeMiner).exists({
+        where: { accountId },
+      }),
+    ]);
+
+    return hasPaidMiner || hasFreeMiner;
   }
 
   isInternalAccount(address: string): boolean {
@@ -235,7 +243,7 @@ export class AccountService {
       return true;
     }
 
-    return this.hasPurchasedMiner(accountId, manager);
+    return this.hasInviteEligibleMiner(accountId, manager);
   }
 
   async syncNodeLevel(address: string) {
