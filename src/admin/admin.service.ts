@@ -970,6 +970,13 @@ export class AdminService {
         throw new BadRequestException('INVALID_CONFIG_FORMAT');
       }
     }
+
+    if (
+      key === ConfigService.FREE_MINER_CAN_INVITE_KEY &&
+      !['0', '1'].includes(value)
+    ) {
+      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
   }
 
   private async updateActiveMinerRewardPerSecond(

@@ -215,16 +215,24 @@ export class AccountService {
     accountId: number,
     manager: EntityManager = this.dataSource.manager,
   ): Promise<boolean> {
-    const [hasPaidMiner, hasFreeMiner] = await Promise.all([
-      manager.getRepository(AccountMiner).exists({
-        where: { accountId },
-      }),
-      manager.getRepository(FreeMiner).exists({
-        where: { accountId },
-      }),
-    ]);
+    const hasPaidMiner = await manager.getRepository(AccountMiner).exists({
+      where: { accountId },
+    });
 
-    return hasPaidMiner || hasFreeMiner;
+    if (hasPaidMiner) {
+      return true;
+    }
+
+    const freeMinerCanInvite = await this.configService.getFreeMinerCanInvite();
+    if (!freeMinerCanInvite) {
+      return false;
+    }
+
+    const hasFreeMiner = await manager.getRepository(FreeMiner).exists({
+      where: { accountId },
+    });
+
+    return hasFreeMiner;
   }
 
   isInternalAccount(address: string): boolean {

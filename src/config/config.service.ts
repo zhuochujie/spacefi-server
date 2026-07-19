@@ -31,6 +31,7 @@ export class ConfigService {
   static readonly SPACE_USDT_PRICE_WEI_KEY = 'SPACE_USDT_PRICE_WEI';
   static readonly FREE_MINER_PRICE_WEI_KEY = 'FREE_MINER_PRICE_WEI';
   static readonly FREE_MINER_CYCLE_REWARD_BP_KEY = 'FREE_MINER_CYCLE_REWARD_BP';
+  static readonly FREE_MINER_CAN_INVITE_KEY = 'FREE_MINER_CAN_INVITE';
 
   constructor(
     @InjectRepository(Config)
@@ -177,6 +178,17 @@ export class ConfigService {
     };
   }
 
+  async getFreeMinerCanInvite() {
+    const config = await this.configRepository.findOne({
+      where: { key: ConfigService.FREE_MINER_CAN_INVITE_KEY },
+    });
+
+    return this.parseBooleanLike(
+      ConfigService.FREE_MINER_CAN_INVITE_KEY,
+      config?.value,
+    );
+  }
+
   async getDividendRules(
     category: DividendRuleCategory,
     token: AccountBalanceLogToken,
@@ -295,6 +307,12 @@ export class ConfigService {
         key: ConfigService.FREE_MINER_CYCLE_REWARD_BP_KEY,
         value: '8000',
         desc: '免费矿机周期奖励比例，单位 BP，10000 表示 100%；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.FREE_MINER_CAN_INVITE_KEY,
+        value: '1',
+        desc: '免费矿机是否可以邀请，1 表示可以，0 表示不可以；付费矿机邀请不受影响',
         isAdminEditable: true,
       },
     ];
@@ -482,5 +500,21 @@ export class ConfigService {
     }
 
     return parsed;
+  }
+
+  private parseBooleanLike(key: string, value?: string) {
+    if (value === undefined) {
+      throw new CustomException('CONFIG_NOT_FOUND', 500);
+    }
+
+    if (value === '1') {
+      return true;
+    }
+
+    if (value === '0') {
+      return false;
+    }
+
+    throw new CustomException('INVALID_CONFIG_FORMAT', 500);
   }
 }
