@@ -186,7 +186,7 @@ WITH available_miners AS (
     am.expected_reward - am.produced_reward AS remaining_reward,
     SUM(am.expected_reward - am.produced_reward) OVER (
         PARTITION BY am.account_id
-        ORDER BY am.created_at ASC, am.id ASC
+        ORDER BY am.cycle ASC, am.expected_reward DESC, am.id ASC
         ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
     ) AS previous_remaining_reward
     FROM account_miner am
