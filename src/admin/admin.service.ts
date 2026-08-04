@@ -43,6 +43,7 @@ import { AdminCreateMinerDto } from './dto/admin-create-miner.dto';
 import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
+import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 
 @Injectable()
 export class AdminService {
@@ -775,6 +776,43 @@ export class AdminService {
     );
 
     return this.getUserMiners(accountId);
+  }
+
+  async batchAccelerateAccountMiners(dto: AdminBatchAccelerateMinersDto) {
+    const addresses = Array.from(
+      new Set(dto.addresses.map((address) => address.trim().toLowerCase())),
+    );
+
+    const rows = await this.dataSource.query<
+      {
+        inputAddressCount: number | string;
+        matchedAccountCount: number | string;
+        acceleratedAccountCount: number | string;
+        acceleratedMinerCount: number | string;
+        totalReward: string;
+      }[]
+    >(
+      `
+      SELECT
+        input_address_count AS "inputAddressCount",
+        matched_account_count AS "matchedAccountCount",
+        accelerated_account_count AS "acceleratedAccountCount",
+        accelerated_miner_count AS "acceleratedMinerCount",
+        total_reward AS "totalReward"
+      FROM batch_accelerate_account_miners($1)
+      `,
+      [addresses],
+    );
+
+    const result = rows[0];
+
+    return {
+      inputAddressCount: Number(result?.inputAddressCount ?? 0),
+      matchedAccountCount: Number(result?.matchedAccountCount ?? 0),
+      acceleratedAccountCount: Number(result?.acceleratedAccountCount ?? 0),
+      acceleratedMinerCount: Number(result?.acceleratedMinerCount ?? 0),
+      totalReward: result?.totalReward ?? '0',
+    };
   }
 
   private validateDividendRuleGroupUpdate(

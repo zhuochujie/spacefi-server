@@ -31,6 +31,7 @@ import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAction } from 'src/notification/admin-action.decorator';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
+import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
@@ -94,6 +95,12 @@ export class AdminController {
     @Body() dto: AdminUpdateMinerDto,
   ) {
     return this.adminService.updateMiner(minerId, dto);
+  }
+
+  @Post('miners/batch-accelerate')
+  @AdminAction('批量加速矿机出局')
+  batchAccelerateAccountMiners(@Body() dto: AdminBatchAccelerateMinersDto) {
+    return this.adminService.batchAccelerateAccountMiners(dto);
   }
 
   @Get('stats/today-miner-purchase-space')
