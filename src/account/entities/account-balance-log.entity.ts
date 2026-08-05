@@ -18,6 +18,8 @@ export enum AccountBalanceLogType {
   NodeDividend = 'node_dividend',
   FreeMinerClaim = 'free_miner_claim',
   SystemReward = 'system_reward',
+  AdminTransferOut = 'admin_transfer_out',
+  AdminTransferIn = 'admin_transfer_in',
 }
 
 export enum AccountBalanceLogToken {

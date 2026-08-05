@@ -44,6 +44,7 @@ import { AdminUpdateMinerDto } from './dto/admin-update-miner.dto';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
+import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 
 @Injectable()
 export class AdminService {
@@ -750,6 +751,141 @@ export class AdminService {
         address: account.address,
         balance: account.balance,
         usdtBalance: account.usdtBalance,
+      };
+    });
+  }
+
+  async transferUserBalance(
+    accountId: number,
+    dto: AdminTransferUserBalanceDto,
+  ) {
+    return await this.dataSource.transaction(async (manager) => {
+      type TransferAccountRow = {
+        id: number;
+        address: string;
+        balance: string;
+        usdtBalance: string;
+      };
+
+      const balanceLogRepository = manager.getRepository(AccountBalanceLog);
+      const transferAmount = BigInt(dto.amount);
+      const targetAddress = dto.toAddress;
+
+      const accounts = await manager.query<TransferAccountRow[]>(
+        `
+        SELECT
+          id,
+          address,
+          balance::text AS balance,
+          usdt_balance::text AS "usdtBalance"
+        FROM account
+        WHERE id = $1
+           OR lower(address) = $2
+        ORDER BY id
+        FOR UPDATE
+        `,
+        [accountId, targetAddress],
+      );
+
+      const fromAccount = accounts.find((account) => account.id === accountId);
+      const toAccount = accounts.find(
+        (account) => account.address.toLowerCase() === targetAddress,
+      );
+
+      if (!fromAccount) {
+        throw new NotFoundException('ACCOUNT_NOT_FOUND');
+      }
+
+      if (!toAccount) {
+        throw new NotFoundException('TARGET_ACCOUNT_NOT_FOUND');
+      }
+
+      if (fromAccount.id === toAccount.id) {
+        throw new BadRequestException('CANNOT_TRANSFER_TO_SELF');
+      }
+
+      if (transferAmount <= 0n) {
+        throw new BadRequestException('INVALID_TRANSFER_AMOUNT');
+      }
+
+      const balanceField =
+        dto.token === AccountBalanceLogToken.Usdt ? 'usdtBalance' : 'balance';
+      const dbBalanceColumn =
+        dto.token === AccountBalanceLogToken.Usdt ? 'usdt_balance' : 'balance';
+      const fromBalanceBefore = fromAccount[balanceField];
+      const toBalanceBefore = toAccount[balanceField];
+
+      if (BigInt(fromBalanceBefore) < transferAmount) {
+        throw new ConflictException('INSUFFICIENT_BALANCE');
+      }
+
+      const fromBalanceAfter = (
+        BigInt(fromBalanceBefore) - transferAmount
+      ).toString();
+      const toBalanceAfter = (
+        BigInt(toBalanceBefore) + transferAmount
+      ).toString();
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+
+      await manager.query(
+        `
+        UPDATE account
+        SET ${dbBalanceColumn} = CASE
+          WHEN id = $1 THEN $3::numeric
+          WHEN id = $2 THEN $4::numeric
+          ELSE ${dbBalanceColumn}
+        END
+        WHERE id IN ($1, $2)
+        `,
+        [fromAccount.id, toAccount.id, fromBalanceAfter, toBalanceAfter],
+      );
+
+      await balanceLogRepository.save([
+        balanceLogRepository.create({
+          accountId: fromAccount.id,
+          type: AccountBalanceLogType.AdminTransferOut,
+          token: dto.token,
+          amount: (-transferAmount).toString(),
+          balanceBefore: fromBalanceBefore,
+          balanceAfter: fromBalanceAfter,
+          createdAt: currentTimestamp,
+        }),
+        balanceLogRepository.create({
+          accountId: toAccount.id,
+          type: AccountBalanceLogType.AdminTransferIn,
+          token: dto.token,
+          amount: transferAmount.toString(),
+          balanceBefore: toBalanceBefore,
+          balanceAfter: toBalanceAfter,
+          createdAt: currentTimestamp,
+        }),
+      ]);
+
+      return {
+        from: {
+          id: fromAccount.id,
+          address: fromAccount.address,
+          balance:
+            dto.token === AccountBalanceLogToken.Space
+              ? fromBalanceAfter
+              : fromAccount.balance,
+          usdtBalance:
+            dto.token === AccountBalanceLogToken.Usdt
+              ? fromBalanceAfter
+              : fromAccount.usdtBalance,
+        },
+        to: {
+          id: toAccount.id,
+          address: toAccount.address,
+          balance:
+            dto.token === AccountBalanceLogToken.Space
+              ? toBalanceAfter
+              : toAccount.balance,
+          usdtBalance:
+            dto.token === AccountBalanceLogToken.Usdt
+              ? toBalanceAfter
+              : toAccount.usdtBalance,
+        },
       };
     });
   }

@@ -32,6 +32,7 @@ import { AdminAction } from 'src/notification/admin-action.decorator';
 import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
+import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
@@ -204,6 +205,15 @@ export class AdminController {
     @Body() dto: AdminAddSystemRewardDto,
   ) {
     return this.adminService.addUserSystemReward(accountId, dto);
+  }
+
+  @Post('users/:accountId/transfer')
+  @AdminAction('后台用户转账')
+  transferUserBalance(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Body() dto: AdminTransferUserBalanceDto,
+  ) {
+    return this.adminService.transferUserBalance(accountId, dto);
   }
 
   @Get('users/:accountId/miners')
