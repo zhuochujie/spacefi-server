@@ -5,6 +5,7 @@ import { AccountBalanceLog } from 'src/account/entities/account-balance-log.enti
 import { AccountRelation } from 'src/account/entities/account-relation.entity';
 import { AccountWithdrawSignature } from 'src/account/entities/account-withdraw-signature.entity';
 import { Account } from 'src/account/entities/account.entity';
+import { DividendLevelStat } from 'src/account/entities/dividend-level-stat.entity';
 import { AdminUser } from 'src/admin-auth/entities/admin-user.entity';
 import {
   optionalBoolEnv,
@@ -24,6 +25,7 @@ const entities = [
   AccountRelation,
   AccountBalanceLog,
   AccountWithdrawSignature,
+  DividendLevelStat,
   AdminUser,
   Config,
   DividendRule,

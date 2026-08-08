@@ -181,6 +181,16 @@ export class AdminController {
     return this.adminService.getDividendLogs(query);
   }
 
+  @Get('dividends/rounds')
+  getDividendRounds(@Query() query: AdminPageQueryDto) {
+    return this.adminService.getDividendRounds(query);
+  }
+
+  @Get('dividends/rounds/:roundAt')
+  getDividendRoundDetail(@Param('roundAt', ParseIntPipe) roundAt: number) {
+    return this.adminService.getDividendRoundDetail(roundAt);
+  }
+
   @Patch('users/:accountId/levels')
   @AdminAction('修改用户等级')
   updateUserLevels(

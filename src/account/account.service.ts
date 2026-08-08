@@ -32,6 +32,14 @@ import { ConfigService } from 'src/config/config.service';
 import { DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
 import { AccountMiner } from 'src/miner/entities/account-miner.entity';
 import { FreeMiner } from 'src/miner/entities/free-miner.entity';
+import { DividendLevelStat } from './entities/dividend-level-stat.entity';
+
+type DividendDistributionStat = {
+  recipientCount: number;
+  perUserAmount: string;
+  totalAmount: string;
+  fallbackUsed: boolean;
+};
 
 @Injectable()
 export class AccountService {
@@ -956,7 +964,7 @@ export class AccountService {
         [rule.level],
       );
 
-      await this.distributeDividendToRecipients(
+      const stat = await this.distributeDividendToRecipients(
         manager,
         recipients.map((recipient) => recipient.id),
         levelAmount,
@@ -965,6 +973,14 @@ export class AccountService {
         balanceField,
         currentTimestamp,
       );
+      await this.saveDividendLevelStat(manager, {
+        roundAt: currentTimestamp,
+        category: DividendRuleCategory.Vip,
+        token,
+        level: rule.level,
+        bp: Number(rule.bp),
+        ...stat,
+      });
     }
   }
 
@@ -989,7 +1005,7 @@ export class AccountService {
         [rule.level],
       );
 
-      await this.distributeDividendToRecipients(
+      const stat = await this.distributeDividendToRecipients(
         manager,
         recipients.map((recipient) => recipient.id),
         levelAmount,
@@ -998,6 +1014,14 @@ export class AccountService {
         balanceField,
         currentTimestamp,
       );
+      await this.saveDividendLevelStat(manager, {
+        roundAt: currentTimestamp,
+        category: DividendRuleCategory.Node,
+        token,
+        level: rule.level,
+        bp: Number(rule.bp),
+        ...stat,
+      });
     }
   }
 
@@ -1009,13 +1033,21 @@ export class AccountService {
     token: AccountBalanceLogToken,
     balanceField: 'balance' | 'usdtBalance',
     currentTimestamp: number,
-  ) {
+  ): Promise<DividendDistributionStat> {
+    const recipientCount = recipientIds.length;
+
     if (amount <= 0n) {
-      return;
+      return {
+        recipientCount,
+        perUserAmount: '0',
+        totalAmount: '0',
+        fallbackUsed: false,
+      };
     }
 
     const accountRepository = manager.getRepository(Account);
     const balanceLogRepository = manager.getRepository(AccountBalanceLog);
+    const fallbackUsed = recipientIds.length === 0;
     const targetIds =
       recipientIds.length > 0
         ? recipientIds
@@ -1023,8 +1055,14 @@ export class AccountService {
     const averageAmount = amount / BigInt(targetIds.length);
 
     if (averageAmount <= 0n) {
-      return;
+      return {
+        recipientCount,
+        perUserAmount: '0',
+        totalAmount: '0',
+        fallbackUsed,
+      };
     }
+    const totalPaidAmount = averageAmount * BigInt(targetIds.length);
 
     for (const accountId of targetIds) {
       const account = await accountRepository.findOne({
@@ -1053,6 +1091,31 @@ export class AccountService {
         }),
       );
     }
+
+    return {
+      recipientCount,
+      perUserAmount: averageAmount.toString(),
+      totalAmount: totalPaidAmount.toString(),
+      fallbackUsed,
+    };
+  }
+
+  private async saveDividendLevelStat(
+    manager: EntityManager,
+    stat: {
+      roundAt: number;
+      category: DividendRuleCategory;
+      token: AccountBalanceLogToken;
+      level: number;
+      bp: number;
+    } & DividendDistributionStat,
+  ) {
+    const dividendLevelStatRepository =
+      manager.getRepository(DividendLevelStat);
+
+    await dividendLevelStatRepository.save(
+      dividendLevelStatRepository.create(stat),
+    );
   }
 
   private async getDividendFallbackAccountId(

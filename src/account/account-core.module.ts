@@ -7,6 +7,7 @@ import { AccountBalanceLog } from './entities/account-balance-log.entity';
 import { AccountRelation } from './entities/account-relation.entity';
 import { AccountWithdrawSignature } from './entities/account-withdraw-signature.entity';
 import { Account } from './entities/account.entity';
+import { DividendLevelStat } from './entities/dividend-level-stat.entity';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { Account } from './entities/account.entity';
       AccountRelation,
       AccountBalanceLog,
       AccountWithdrawSignature,
+      DividendLevelStat,
     ]),
     Web3Module,
     ConfigModule,

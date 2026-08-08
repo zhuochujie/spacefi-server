@@ -620,6 +620,106 @@ export class AdminService {
     };
   }
 
+  async getDividendRounds(query: AdminPageQueryDto) {
+    const list = await this.dataSource.query<
+      {
+        roundAt: number;
+        totalSpaceAmount: string;
+        totalUsdtAmount: string;
+        vipSpaceAmount: string;
+        nodeSpaceAmount: string;
+        nodeUsdtAmount: string;
+        fallbackCount: number | string;
+        statCount: number | string;
+      }[]
+    >(
+      `
+      SELECT
+        round_at AS "roundAt",
+        COALESCE(SUM(CASE WHEN token = 'SPACE' THEN total_amount ELSE 0 END), 0)::text AS "totalSpaceAmount",
+        COALESCE(SUM(CASE WHEN token = 'USDT' THEN total_amount ELSE 0 END), 0)::text AS "totalUsdtAmount",
+        COALESCE(SUM(CASE WHEN category = 'vip' AND token = 'SPACE' THEN total_amount ELSE 0 END), 0)::text AS "vipSpaceAmount",
+        COALESCE(SUM(CASE WHEN category = 'node' AND token = 'SPACE' THEN total_amount ELSE 0 END), 0)::text AS "nodeSpaceAmount",
+        COALESCE(SUM(CASE WHEN category = 'node' AND token = 'USDT' THEN total_amount ELSE 0 END), 0)::text AS "nodeUsdtAmount",
+        COALESCE(SUM(CASE WHEN fallback_used THEN 1 ELSE 0 END), 0)::integer AS "fallbackCount",
+        COUNT(*)::integer AS "statCount"
+      FROM dividend_level_stat
+      GROUP BY round_at
+      ORDER BY round_at DESC
+      LIMIT $1
+      OFFSET $2
+      `,
+      [query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    const totalResult = await this.dataSource.query<{ total: string }[]>(
+      `
+      SELECT COUNT(DISTINCT round_at)::text AS total
+      FROM dividend_level_stat
+      `,
+    );
+
+    return {
+      list: list.map((round) => ({
+        ...round,
+        fallbackCount: Number(round.fallbackCount),
+        statCount: Number(round.statCount),
+      })),
+      total: Number(totalResult[0]?.total ?? 0),
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  async getDividendRoundDetail(roundAt: number) {
+    const rows = await this.dataSource.query<
+      {
+        id: number;
+        roundAt: number;
+        category: string;
+        token: string;
+        level: number;
+        bp: number;
+        recipientCount: number | string;
+        perUserAmount: string;
+        totalAmount: string;
+        fallbackUsed: boolean;
+      }[]
+    >(
+      `
+      SELECT
+        id,
+        round_at AS "roundAt",
+        category,
+        token,
+        level,
+        bp,
+        recipient_count AS "recipientCount",
+        per_user_amount AS "perUserAmount",
+        total_amount AS "totalAmount",
+        fallback_used AS "fallbackUsed"
+      FROM dividend_level_stat
+      WHERE round_at = $1
+      ORDER BY
+        CASE WHEN category = 'vip' THEN 1 ELSE 2 END,
+        token,
+        level
+      `,
+      [roundAt],
+    );
+
+    if (rows.length === 0) {
+      throw new NotFoundException('DIVIDEND_ROUND_NOT_FOUND');
+    }
+
+    return {
+      roundAt,
+      list: rows.map((row) => ({
+        ...row,
+        recipientCount: Number(row.recipientCount),
+      })),
+    };
+  }
+
   async getUserBalanceLogs(accountId: number, query: BalanceLogQueryDto) {
     const accountRepository = this.dataSource.getRepository(Account);
     const account = await accountRepository.findOne({
