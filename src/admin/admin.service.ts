@@ -45,6 +45,7 @@ import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
+import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
 
 @Injectable()
 export class AdminService {
@@ -990,6 +991,319 @@ export class AdminService {
     });
   }
 
+  async getUserTeamOverview(accountId: number) {
+    const rows = await this.dataSource.query<
+      {
+        accountId: number;
+        address: string;
+        refCode: string;
+        vipLevel: number;
+        manualVipLevel: number;
+        nodeLevel: number;
+        directCount: number | string;
+        teamCount: number | string;
+        teamPerformance: string;
+        directPerformance: string;
+        teamMinerBuyerCount: number | string;
+        teamMinerCount: number | string;
+        teamFreeMinerCount: number | string;
+        teamReward: string;
+      }[]
+    >(
+      `
+      WITH team_members AS (
+        SELECT subordinate_id AS account_id, level
+        FROM account_relation
+        WHERE superior_id = $1
+      ),
+      purchase_stats AS (
+        SELECT
+          COALESCE(SUM(signature.price), 0)::text AS team_performance,
+          COALESCE(SUM(signature.price) FILTER (WHERE team_members.level = 1), 0)::text AS direct_performance,
+          COUNT(DISTINCT signature.account_id)::integer AS team_miner_buyer_count
+        FROM team_members
+        JOIN miner_purchase_signature signature
+          ON signature.account_id = team_members.account_id
+         AND signature.status = 'used'
+      ),
+      miner_stats AS (
+        SELECT COUNT(*)::integer AS team_miner_count
+        FROM account_miner miner
+        JOIN team_members
+          ON team_members.account_id = miner.account_id
+      ),
+      free_miner_stats AS (
+        SELECT COUNT(*)::integer AS team_free_miner_count
+        FROM free_miner miner
+        JOIN team_members
+          ON team_members.account_id = miner.account_id
+      ),
+      reward_stats AS (
+        SELECT COALESCE(SUM(amount), 0)::text AS team_reward
+        FROM account_balance_log
+        WHERE account_id = $1
+          AND type = 'team_reward'
+          AND token = 'SPACE'
+      )
+      SELECT
+        account.id AS "accountId",
+        account.address,
+        account.ref_code AS "refCode",
+        account.vip_level AS "vipLevel",
+        account.manual_vip_level AS "manualVipLevel",
+        account.node_level AS "nodeLevel",
+        COUNT(DISTINCT team_members.account_id) FILTER (WHERE team_members.level = 1)::integer AS "directCount",
+        COUNT(DISTINCT team_members.account_id)::integer AS "teamCount",
+        COALESCE(purchase_stats.team_performance, '0') AS "teamPerformance",
+        COALESCE(purchase_stats.direct_performance, '0') AS "directPerformance",
+        COALESCE(purchase_stats.team_miner_buyer_count, 0) AS "teamMinerBuyerCount",
+        COALESCE(miner_stats.team_miner_count, 0) AS "teamMinerCount",
+        COALESCE(free_miner_stats.team_free_miner_count, 0) AS "teamFreeMinerCount",
+        COALESCE(reward_stats.team_reward, '0') AS "teamReward"
+      FROM account
+      LEFT JOIN team_members ON true
+      CROSS JOIN purchase_stats
+      CROSS JOIN miner_stats
+      CROSS JOIN free_miner_stats
+      CROSS JOIN reward_stats
+      WHERE account.id = $1
+      GROUP BY
+        account.id,
+        purchase_stats.team_performance,
+        purchase_stats.direct_performance,
+        purchase_stats.team_miner_buyer_count,
+        miner_stats.team_miner_count,
+        free_miner_stats.team_free_miner_count,
+        reward_stats.team_reward
+      `,
+      [accountId],
+    );
+
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException('ACCOUNT_NOT_FOUND');
+    }
+
+    return {
+      ...row,
+      directCount: Number(row.directCount),
+      teamCount: Number(row.teamCount),
+      teamMinerBuyerCount: Number(row.teamMinerBuyerCount),
+      teamMinerCount: Number(row.teamMinerCount),
+      teamFreeMinerCount: Number(row.teamFreeMinerCount),
+    };
+  }
+
+  async getUserTeamBranches(accountId: number, query: AdminPageQueryDto) {
+    await this.ensureAccountExists(accountId);
+
+    const list = await this.dataSource.query<
+      {
+        accountId: number;
+        address: string;
+        refCode: string;
+        vipLevel: number;
+        manualVipLevel: number;
+        nodeLevel: number;
+        branchTeamCount: number | string;
+        branchPerformance: string;
+        branchMinerCount: number | string;
+        createdAt: number;
+      }[]
+    >(
+      `
+      WITH direct_accounts AS (
+        SELECT
+          direct.subordinate_id AS direct_id,
+          direct.id AS relation_id
+        FROM account_relation direct
+        WHERE direct.superior_id = $1
+          AND direct.level = 1
+      ),
+      direct_branch AS (
+        SELECT direct_id, direct_id AS member_id
+        FROM direct_accounts
+
+        UNION ALL
+
+        SELECT direct_accounts.direct_id, team.subordinate_id AS member_id
+        FROM direct_accounts
+        JOIN account_relation team
+          ON team.superior_id = direct_accounts.direct_id
+      ),
+      branch_stats AS (
+        SELECT
+          branch.direct_id,
+          COUNT(DISTINCT branch.member_id)::integer AS branch_team_count,
+          COALESCE(SUM(signature.price), 0)::text AS branch_performance
+        FROM direct_branch branch
+        LEFT JOIN miner_purchase_signature signature
+          ON signature.account_id = branch.member_id
+         AND signature.status = 'used'
+        GROUP BY branch.direct_id
+      ),
+      branch_miners AS (
+        SELECT
+          branch.direct_id,
+          COUNT(miner.id)::integer AS branch_miner_count
+        FROM direct_branch branch
+        JOIN account_miner miner
+          ON miner.account_id = branch.member_id
+        GROUP BY branch.direct_id
+      )
+      SELECT
+        account.id AS "accountId",
+        account.address,
+        account.ref_code AS "refCode",
+        account.vip_level AS "vipLevel",
+        account.manual_vip_level AS "manualVipLevel",
+        account.node_level AS "nodeLevel",
+        COALESCE(branch_stats.branch_team_count, 0) AS "branchTeamCount",
+        COALESCE(branch_stats.branch_performance, '0') AS "branchPerformance",
+        COALESCE(branch_miners.branch_miner_count, 0) AS "branchMinerCount",
+        account.created_at AS "createdAt"
+      FROM direct_accounts
+      JOIN account ON account.id = direct_accounts.direct_id
+      LEFT JOIN branch_stats ON branch_stats.direct_id = direct_accounts.direct_id
+      LEFT JOIN branch_miners ON branch_miners.direct_id = direct_accounts.direct_id
+      ORDER BY direct_accounts.relation_id ASC
+      LIMIT $2
+      OFFSET $3
+      `,
+      [accountId, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    const totalRows = await this.dataSource.query<{ total: string }[]>(
+      `
+      SELECT COUNT(*)::text AS total
+      FROM account_relation
+      WHERE superior_id = $1
+        AND level = 1
+      `,
+      [accountId],
+    );
+
+    return {
+      list: list.map((item) => ({
+        ...item,
+        branchTeamCount: Number(item.branchTeamCount),
+        branchMinerCount: Number(item.branchMinerCount),
+      })),
+      total: Number(totalRows[0]?.total ?? 0),
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  async getUserTeamMembers(
+    accountId: number,
+    query: AdminTeamMembersQueryDto,
+  ) {
+    await this.ensureAccountExists(accountId);
+
+    const conditions = ['relation.superior_id = $1'];
+    const params: Array<number | string> = [accountId];
+    if (query.level !== undefined) {
+      params.push(query.level);
+      conditions.push(`relation.level = $${params.length}`);
+    }
+    if (query.address?.trim()) {
+      params.push(`%${query.address.trim().toLowerCase()}%`);
+      conditions.push(`lower(member.address) LIKE $${params.length}`);
+    }
+
+    const whereSql = conditions.join(' AND ');
+    const list = await this.dataSource.query<
+      {
+        accountId: number;
+        address: string;
+        refCode: string;
+        level: number;
+        superiorAddress: string | null;
+        vipLevel: number;
+        manualVipLevel: number;
+        nodeLevel: number;
+        performance: string;
+        minerCount: number | string;
+        freeMinerCount: number | string;
+        createdAt: number;
+      }[]
+    >(
+      `
+      WITH member_purchase AS (
+        SELECT
+          signature.account_id,
+          COALESCE(SUM(signature.price), 0)::text AS performance
+        FROM miner_purchase_signature signature
+        WHERE signature.status = 'used'
+        GROUP BY signature.account_id
+      ),
+      member_miners AS (
+        SELECT account_id, COUNT(*)::integer AS miner_count
+        FROM account_miner
+        GROUP BY account_id
+      ),
+      member_free_miners AS (
+        SELECT account_id, COUNT(*)::integer AS free_miner_count
+        FROM free_miner
+        GROUP BY account_id
+      )
+      SELECT
+        member.id AS "accountId",
+        member.address,
+        member.ref_code AS "refCode",
+        relation.level,
+        direct_superior.address AS "superiorAddress",
+        member.vip_level AS "vipLevel",
+        member.manual_vip_level AS "manualVipLevel",
+        member.node_level AS "nodeLevel",
+        COALESCE(member_purchase.performance, '0') AS performance,
+        COALESCE(member_miners.miner_count, 0) AS "minerCount",
+        COALESCE(member_free_miners.free_miner_count, 0) AS "freeMinerCount",
+        member.created_at AS "createdAt"
+      FROM account_relation relation
+      JOIN account member
+        ON member.id = relation.subordinate_id
+      LEFT JOIN account_relation direct_relation
+        ON direct_relation.subordinate_id = member.id
+       AND direct_relation.level = 1
+      LEFT JOIN account direct_superior
+        ON direct_superior.id = direct_relation.superior_id
+      LEFT JOIN member_purchase
+        ON member_purchase.account_id = member.id
+      LEFT JOIN member_miners
+        ON member_miners.account_id = member.id
+      LEFT JOIN member_free_miners
+        ON member_free_miners.account_id = member.id
+      WHERE ${whereSql}
+      ORDER BY relation.level ASC, relation.id ASC
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
+      `,
+      [...params, query.pageSize, (query.page - 1) * query.pageSize],
+    );
+    const totalRows = await this.dataSource.query<{ total: string }[]>(
+      `
+      SELECT COUNT(*)::text AS total
+      FROM account_relation relation
+      JOIN account member
+        ON member.id = relation.subordinate_id
+      WHERE ${whereSql}
+      `,
+      params,
+    );
+
+    return {
+      list: list.map((item) => ({
+        ...item,
+        minerCount: Number(item.minerCount),
+        freeMinerCount: Number(item.freeMinerCount),
+      })),
+      total: Number(totalRows[0]?.total ?? 0),
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
   async accelerateUserMiner(
     accountId: number,
     accountMinerId: number,
@@ -1049,6 +1363,14 @@ export class AdminService {
       acceleratedMinerCount: Number(result?.acceleratedMinerCount ?? 0),
       totalReward: result?.totalReward ?? '0',
     };
+  }
+
+  private async ensureAccountExists(accountId: number) {
+    const accountRepository = this.dataSource.getRepository(Account);
+    const exists = await accountRepository.exists({ where: { id: accountId } });
+    if (!exists) {
+      throw new NotFoundException('ACCOUNT_NOT_FOUND');
+    }
   }
 
   private validateDividendRuleGroupUpdate(

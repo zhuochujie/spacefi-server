@@ -33,6 +33,7 @@ import { AdminAccelerateMinerDto } from './dto/admin-accelerate-miner.dto';
 import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
+import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
@@ -224,6 +225,27 @@ export class AdminController {
     @Body() dto: AdminTransferUserBalanceDto,
   ) {
     return this.adminService.transferUserBalance(accountId, dto);
+  }
+
+  @Get('users/:accountId/team/overview')
+  getUserTeamOverview(@Param('accountId', ParseIntPipe) accountId: number) {
+    return this.adminService.getUserTeamOverview(accountId);
+  }
+
+  @Get('users/:accountId/team/branches')
+  getUserTeamBranches(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Query() query: AdminPageQueryDto,
+  ) {
+    return this.adminService.getUserTeamBranches(accountId, query);
+  }
+
+  @Get('users/:accountId/team/members')
+  getUserTeamMembers(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Query() query: AdminTeamMembersQueryDto,
+  ) {
+    return this.adminService.getUserTeamMembers(accountId, query);
   }
 
   @Get('users/:accountId/miners')
