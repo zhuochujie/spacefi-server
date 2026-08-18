@@ -30,6 +30,11 @@ export class AccountController {
     return await this.accountService.getBalanceLogs(account.sub, query);
   }
 
+  @Get('dividend-summary')
+  async getDividendSummary(@CurrentAccount() account: JwtAccount) {
+    return await this.accountService.getDividendSummary(account.sub);
+  }
+
   @Get('team')
   async getTeam(@CurrentAccount() account: JwtAccount) {
     return await this.accountService.getTeam(account.sub);

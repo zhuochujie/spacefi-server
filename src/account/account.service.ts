@@ -355,6 +355,42 @@ export class AccountService {
     };
   }
 
+  async getDividendSummary(accountId: number) {
+    const [summary] = await this.dataSource.query<
+      {
+        vipSpaceAmount: string;
+        nodeSpaceAmount: string;
+        nodeUsdtAmount: string;
+        updatedAt: number | string;
+      }[]
+    >(
+      `
+      SELECT
+        COALESCE(SUM(amount) FILTER (
+          WHERE type = 'vip_dividend' AND token = 'SPACE'
+        ), 0)::text AS "vipSpaceAmount",
+        COALESCE(SUM(amount) FILTER (
+          WHERE type = 'node_dividend' AND token = 'SPACE'
+        ), 0)::text AS "nodeSpaceAmount",
+        COALESCE(SUM(amount) FILTER (
+          WHERE type = 'node_dividend' AND token = 'USDT'
+        ), 0)::text AS "nodeUsdtAmount",
+        COALESCE(MAX(created_at), 0) AS "updatedAt"
+      FROM account_balance_log
+      WHERE account_id = $1
+        AND type IN ('vip_dividend', 'node_dividend')
+      `,
+      [accountId],
+    );
+
+    return {
+      vipSpaceAmount: summary?.vipSpaceAmount ?? '0',
+      nodeSpaceAmount: summary?.nodeSpaceAmount ?? '0',
+      nodeUsdtAmount: summary?.nodeUsdtAmount ?? '0',
+      updatedAt: Number(summary?.updatedAt ?? 0),
+    };
+  }
+
   async getTeam(accountId: number) {
     const [directList, teamCountResult] = await Promise.all([
       this.dataSource.query<
