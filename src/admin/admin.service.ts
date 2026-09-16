@@ -46,6 +46,7 @@ import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
+import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
 
 @Injectable()
 export class AdminService {
@@ -986,6 +987,157 @@ export class AdminService {
             dto.token === AccountBalanceLogToken.Usdt
               ? toBalanceAfter
               : toAccount.usdtBalance,
+        },
+      };
+    });
+  }
+
+  async deleteUser(accountId: number, dto: AdminDeleteUserDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const accounts = await manager.query<
+        {
+          id: number;
+          address: string;
+        }[]
+      >(
+        `
+        SELECT id, address
+        FROM account
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [accountId],
+      );
+      const account = accounts[0];
+
+      if (!account) {
+        throw new NotFoundException('用户不存在');
+      }
+
+      const address = account.address.toLowerCase();
+      if (dto.confirmAddress !== address) {
+        throw new BadRequestException('确认地址与用户地址不一致');
+      }
+
+      const subordinateCountResult = await manager.query<
+        { count: string }[]
+      >(
+        `
+        SELECT COUNT(*)::text AS count
+        FROM account_relation
+        WHERE superior_id = $1
+        `,
+        [accountId],
+      );
+      const subordinateCount = Number(subordinateCountResult[0]?.count ?? 0);
+
+      if (subordinateCount > 0) {
+        throw new ConflictException('该用户存在下级，不能删除');
+      }
+
+      const balanceLogResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM account_balance_log
+          WHERE account_id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId],
+      );
+      const accountMinerResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM account_miner
+          WHERE account_id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId],
+      );
+      const freeMinerResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM free_miner
+          WHERE account_id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId],
+      );
+      const withdrawSignatureResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM account_withdraw_signature
+          WHERE account_id = $1
+             OR lower("user") = $2
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId, address],
+      );
+      const purchaseSignatureResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM miner_purchase_signature
+          WHERE account_id = $1
+             OR lower(buyer) = $2
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId, address],
+      );
+      const relationResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM account_relation
+          WHERE superior_id = $1
+             OR subordinate_id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId],
+      );
+      const accountResult = await manager.query<{ count: string }[]>(
+        `
+        WITH deleted AS (
+          DELETE FROM account
+          WHERE id = $1
+          RETURNING 1
+        )
+        SELECT COUNT(*)::text AS count
+        FROM deleted
+        `,
+        [accountId],
+      );
+
+      return {
+        accountId,
+        address,
+        deleted: {
+          accountBalanceLogs: Number(balanceLogResult[0]?.count ?? 0),
+          accountMiners: Number(accountMinerResult[0]?.count ?? 0),
+          freeMiners: Number(freeMinerResult[0]?.count ?? 0),
+          accountWithdrawSignatures: Number(
+            withdrawSignatureResult[0]?.count ?? 0,
+          ),
+          minerPurchaseSignatures: Number(
+            purchaseSignatureResult[0]?.count ?? 0,
+          ),
+          accountRelations: Number(relationResult[0]?.count ?? 0),
+          accounts: Number(accountResult[0]?.count ?? 0),
         },
       };
     });

@@ -34,6 +34,7 @@ import { AdminAddSystemRewardDto } from './dto/admin-add-system-reward.dto';
 import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-miners.dto';
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
+import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
@@ -225,6 +226,15 @@ export class AdminController {
     @Body() dto: AdminTransferUserBalanceDto,
   ) {
     return this.adminService.transferUserBalance(accountId, dto);
+  }
+
+  @Delete('users/:accountId')
+  @AdminAction('删除用户')
+  deleteUser(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Body() dto: AdminDeleteUserDto,
+  ) {
+    return this.adminService.deleteUser(accountId, dto);
   }
 
   @Get('users/:accountId/team/overview')
