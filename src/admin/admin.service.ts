@@ -388,6 +388,27 @@ export class AdminService {
     return { count };
   }
 
+  async getUserBalanceTotals() {
+    const [result] = await this.dataSource.query<
+      {
+        spaceBalance: string;
+        usdtBalance: string;
+      }[]
+    >(
+      `
+      SELECT
+        COALESCE(SUM(balance), 0)::text AS "spaceBalance",
+        COALESCE(SUM(usdt_balance), 0)::text AS "usdtBalance"
+      FROM account
+      `,
+    );
+
+    return {
+      spaceBalance: result?.spaceBalance ?? '0',
+      usdtBalance: result?.usdtBalance ?? '0',
+    };
+  }
+
   async getEstimatedMinerRewards() {
     const targetTimestamp = this.getNextShanghaiMidnightTimestamp();
     const [accountMinerResult] = await this.dataSource.query<
@@ -1236,6 +1257,37 @@ export class AdminService {
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
 
+    const superiorChain = await this.dataSource.query<
+      {
+        accountId: number;
+        address: string;
+        refCode: string;
+        level: number | string;
+        vipLevel: number;
+        manualVipLevel: number;
+        nodeLevel: number;
+        createdAt: number;
+      }[]
+    >(
+      `
+      SELECT
+        superior.id AS "accountId",
+        superior.address,
+        superior.ref_code AS "refCode",
+        relation.level,
+        superior.vip_level AS "vipLevel",
+        superior.manual_vip_level AS "manualVipLevel",
+        superior.node_level AS "nodeLevel",
+        superior.created_at AS "createdAt"
+      FROM account_relation relation
+      JOIN account superior
+        ON superior.id = relation.superior_id
+      WHERE relation.subordinate_id = $1
+      ORDER BY relation.level DESC
+      `,
+      [accountId],
+    );
+
     return {
       ...row,
       directCount: Number(row.directCount),
@@ -1243,6 +1295,10 @@ export class AdminService {
       teamMinerBuyerCount: Number(row.teamMinerBuyerCount),
       teamMinerCount: Number(row.teamMinerCount),
       teamFreeMinerCount: Number(row.teamFreeMinerCount),
+      superiorChain: superiorChain.map((item) => ({
+        ...item,
+        level: Number(item.level),
+      })),
     };
   }
 

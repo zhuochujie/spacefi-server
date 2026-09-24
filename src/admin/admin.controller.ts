@@ -121,6 +121,11 @@ export class AdminController {
     return this.adminService.getMinerCount();
   }
 
+  @Get('stats/user-balances')
+  getUserBalanceTotals() {
+    return this.adminService.getUserBalanceTotals();
+  }
+
   @Get('stats/estimated-miner-rewards')
   getEstimatedMinerRewards() {
     return this.adminService.getEstimatedMinerRewards();
