@@ -1302,6 +1302,32 @@ export class AdminService {
     };
   }
 
+  async getUserTeamAddresses(accountId: number) {
+    await this.ensureAccountExists(accountId);
+
+    const rows = await this.dataSource.query<{ address: string }[]>(
+      `
+      SELECT lower(account.address) AS address
+      FROM account
+      WHERE account.id = $1
+
+      UNION
+
+      SELECT lower(subordinate.address) AS address
+      FROM account_relation relation
+      JOIN account subordinate
+        ON subordinate.id = relation.subordinate_id
+      WHERE relation.superior_id = $1
+      ORDER BY address ASC
+      `,
+      [accountId],
+    );
+
+    return {
+      addresses: rows.map((row) => row.address),
+    };
+  }
+
   async getUserTeamBranches(accountId: number, query: AdminPageQueryDto) {
     await this.ensureAccountExists(accountId);
 

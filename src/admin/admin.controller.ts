@@ -247,6 +247,11 @@ export class AdminController {
     return this.adminService.getUserTeamOverview(accountId);
   }
 
+  @Get('users/:accountId/team/addresses')
+  getUserTeamAddresses(@Param('accountId', ParseIntPipe) accountId: number) {
+    return this.adminService.getUserTeamAddresses(accountId);
+  }
+
   @Get('users/:accountId/team/branches')
   getUserTeamBranches(
     @Param('accountId', ParseIntPipe) accountId: number,
