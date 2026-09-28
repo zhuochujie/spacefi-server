@@ -1341,8 +1341,9 @@ export class AdminService {
 
     const rows = await this.dataSource.query<
       {
-        totalSpacePrice: string;
-        totalUsdtPrice: string;
+        totalMinerPrice: string;
+        spacePaidMinerPrice: string;
+        usdtPaidMinerSpacePrice: string;
         purchaseCount: number | string;
         buyerCount: number | string;
       }[]
@@ -1358,8 +1359,9 @@ export class AdminService {
         WHERE relation.superior_id = $1
       )
       SELECT
-        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 0), 0)::text AS "totalSpacePrice",
-        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 1), 0)::text AS "totalUsdtPrice",
+        COALESCE(SUM(signature.price), 0)::text AS "totalMinerPrice",
+        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 0), 0)::text AS "spacePaidMinerPrice",
+        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 1), 0)::text AS "usdtPaidMinerSpacePrice",
         COUNT(*)::integer AS "purchaseCount",
         COUNT(DISTINCT signature.account_id)::integer AS "buyerCount"
       FROM miner_purchase_signature signature
@@ -1376,8 +1378,9 @@ export class AdminService {
 
     return {
       accountId,
-      totalSpacePrice: row?.totalSpacePrice ?? '0',
-      totalUsdtPrice: row?.totalUsdtPrice ?? '0',
+      totalMinerPrice: row?.totalMinerPrice ?? '0',
+      spacePaidMinerPrice: row?.spacePaidMinerPrice ?? '0',
+      usdtPaidMinerSpacePrice: row?.usdtPaidMinerSpacePrice ?? '0',
       purchaseCount: Number(row?.purchaseCount ?? 0),
       buyerCount: Number(row?.buyerCount ?? 0),
       from: query.from,
