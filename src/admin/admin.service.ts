@@ -47,6 +47,7 @@ import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-mine
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
 import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
+import { AdminTeamMinerPurchaseStatsQueryDto } from './dto/admin-team-miner-purchase-stats-query.dto';
 
 @Injectable()
 export class AdminService {
@@ -1325,6 +1326,62 @@ export class AdminService {
 
     return {
       addresses: rows.map((row) => row.address),
+    };
+  }
+
+  async getUserTeamMinerPurchaseStats(
+    accountId: number,
+    query: AdminTeamMinerPurchaseStatsQueryDto,
+  ) {
+    await this.ensureAccountExists(accountId);
+
+    if (query.to <= query.from) {
+      throw new BadRequestException('INVALID_TIME_RANGE');
+    }
+
+    const rows = await this.dataSource.query<
+      {
+        totalSpacePrice: string;
+        totalUsdtPrice: string;
+        purchaseCount: number | string;
+        buyerCount: number | string;
+      }[]
+    >(
+      `
+      WITH team_accounts AS (
+        SELECT $1::int AS account_id
+
+        UNION
+
+        SELECT relation.subordinate_id AS account_id
+        FROM account_relation relation
+        WHERE relation.superior_id = $1
+      )
+      SELECT
+        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 0), 0)::text AS "totalSpacePrice",
+        COALESCE(SUM(signature.price) FILTER (WHERE signature.payment_token = 1), 0)::text AS "totalUsdtPrice",
+        COUNT(*)::integer AS "purchaseCount",
+        COUNT(DISTINCT signature.account_id)::integer AS "buyerCount"
+      FROM miner_purchase_signature signature
+      JOIN team_accounts
+        ON team_accounts.account_id = signature.account_id
+      WHERE signature.status = 'used'
+        AND signature.created_at >= $2
+        AND signature.created_at < $3
+      `,
+      [accountId, query.from, query.to],
+    );
+
+    const row = rows[0];
+
+    return {
+      accountId,
+      totalSpacePrice: row?.totalSpacePrice ?? '0',
+      totalUsdtPrice: row?.totalUsdtPrice ?? '0',
+      purchaseCount: Number(row?.purchaseCount ?? 0),
+      buyerCount: Number(row?.buyerCount ?? 0),
+      from: query.from,
+      to: query.to,
     };
   }
 

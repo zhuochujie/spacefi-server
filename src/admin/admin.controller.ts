@@ -35,6 +35,7 @@ import { AdminBatchAccelerateMinersDto } from './dto/admin-batch-accelerate-mine
 import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.dto';
 import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
 import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
+import { AdminTeamMinerPurchaseStatsQueryDto } from './dto/admin-team-miner-purchase-stats-query.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
 
@@ -250,6 +251,14 @@ export class AdminController {
   @Get('users/:accountId/team/addresses')
   getUserTeamAddresses(@Param('accountId', ParseIntPipe) accountId: number) {
     return this.adminService.getUserTeamAddresses(accountId);
+  }
+
+  @Get('users/:accountId/team/miner-purchase-stats')
+  getUserTeamMinerPurchaseStats(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Query() query: AdminTeamMinerPurchaseStatsQueryDto,
+  ) {
+    return this.adminService.getUserTeamMinerPurchaseStats(accountId, query);
   }
 
   @Get('users/:accountId/team/branches')
