@@ -151,6 +151,15 @@ export class Web3Service {
     return { value, signature, nonce: nonce.toString() };
   }
 
+  async isFeeExemptAccount(address: string) {
+    return this.publicClient.readContract({
+      address: market.address,
+      abi: market.abi,
+      functionName: 'feeExemptAccounts',
+      args: [address as `0x${string}`],
+    });
+  }
+
   async signPurchaseMiner(
     buyer: string,
     minerId: string,

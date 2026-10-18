@@ -33,6 +33,7 @@ import { DividendRuleCategory } from 'src/config/entities/dividend-rule.entity';
 import { AccountMiner } from 'src/miner/entities/account-miner.entity';
 import { FreeMiner } from 'src/miner/entities/free-miner.entity';
 import { DividendLevelStat } from './entities/dividend-level-stat.entity';
+import { MarketMakerWhitelist } from './entities/market-maker-whitelist.entity';
 
 type DividendDistributionStat = {
   recipientCount: number;
@@ -288,15 +289,58 @@ export class AccountService {
       this.logger.warn('账户不存在');
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
-    const feeExemptMinNodeLevel =
-      await this.configService.getFeeExemptMinNodeLevel();
-    if (account.nodeLevel < feeExemptMinNodeLevel) {
-      this.logger.warn('等级过低');
-      throw new ForbiddenException('NODE_LEVEL_TOO_LOW');
+    const isWhitelisted = await this.dataSource
+      .getRepository(MarketMakerWhitelist)
+      .exists({ where: { accountId } });
+    const effectiveVipLevel = Math.max(
+      account.vipLevel,
+      account.manualVipLevel,
+    );
+    const eligibilityConfig =
+      await this.configService.getMarketMakerEligibilityConfig();
+    const eligible =
+      account.nodeLevel === eligibilityConfig.nodeLevel ||
+      effectiveVipLevel >= eligibilityConfig.vipLevel ||
+      isWhitelisted;
+    if (!eligible) {
+      this.logger.warn('不满足做市商申请条件');
+      throw new ForbiddenException('MARKET_MAKER_REQUIREMENTS_NOT_MET');
     }
     const { signature } = await this.web3Service.signFeeExempt(account.address);
 
     return { account: account.address, exempt: true, signature };
+  }
+
+  async syncMarketMaker(accountId: number) {
+    const accountRepository = this.dataSource.getRepository(Account);
+    const account = await accountRepository.findOne({
+      where: { id: accountId },
+    });
+    if (!account) {
+      throw new NotFoundException('ACCOUNT_NOT_FOUND');
+    }
+
+    let isMarketMaker: boolean;
+    try {
+      isMarketMaker = await this.web3Service.isFeeExemptAccount(
+        account.address,
+      );
+    } catch (error) {
+      this.logger.error(
+        `同步做市商状态失败, accountId:${accountId}, address:${account.address}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new CustomException('MARKET_MAKER_SYNC_FAILED', 502);
+    }
+
+    account.isMarketMaker = isMarketMaker;
+    account.marketMakerSyncedAt = Math.floor(Date.now() / 1000);
+    await accountRepository.save(account);
+
+    return {
+      isMarketMaker: account.isMarketMaker,
+      syncedAt: account.marketMakerSyncedAt,
+    };
   }
 
   private isUniqueViolation(error: unknown) {

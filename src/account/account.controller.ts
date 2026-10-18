@@ -50,6 +50,11 @@ export class AccountController {
     return await this.accountService.claimFeeExempt(account.sub);
   }
 
+  @Post('sync-market-maker')
+  async syncMarketMaker(@CurrentAccount() account: JwtAccount) {
+    return this.accountService.syncMarketMaker(account.sub);
+  }
+
   @Post('withdraw')
   @MaintenanceBlocked()
   async withdraw(

@@ -69,6 +69,7 @@ export class AdminService {
         createdAt: number;
         teamCount: number | string;
         teamPerformance: string;
+        marketMakerWhitelisted: boolean;
       }[]
     >(
       `
@@ -94,7 +95,12 @@ export class AdminService {
         account.node_level AS "nodeLevel",
         account.created_at AS "createdAt",
         COALESCE(team_stats.team_count, 0) AS "teamCount",
-        COALESCE(team_stats.team_performance, '0') AS "teamPerformance"
+        COALESCE(team_stats.team_performance, '0') AS "teamPerformance",
+        EXISTS (
+          SELECT 1
+          FROM market_maker_whitelist whitelist
+          WHERE whitelist.account_id = account.id
+        ) AS "marketMakerWhitelisted"
       FROM account
       LEFT JOIN team_stats
         ON team_stats.account_id = account.id
@@ -158,6 +164,48 @@ export class AdminService {
       balance: account.balance,
       usdtBalance: account.usdtBalance,
       createdAt: account.createdAt,
+    };
+  }
+
+  async updateMarketMakerWhitelist(accountId: number, enabled: boolean) {
+    const accountRows = await this.dataSource.query<
+      { id: number; address: string }[]
+    >(
+      `
+      SELECT id, address
+      FROM account
+      WHERE id = $1
+      `,
+      [accountId],
+    );
+    const account = accountRows[0];
+    if (!account) {
+      throw new NotFoundException('ACCOUNT_NOT_FOUND');
+    }
+
+    if (enabled) {
+      await this.dataSource.query(
+        `
+        INSERT INTO market_maker_whitelist (account_id, created_at)
+        VALUES ($1, $2)
+        ON CONFLICT (account_id) DO NOTHING
+        `,
+        [accountId, Math.floor(Date.now() / 1000)],
+      );
+    } else {
+      await this.dataSource.query(
+        `
+        DELETE FROM market_maker_whitelist
+        WHERE account_id = $1
+        `,
+        [accountId],
+      );
+    }
+
+    return {
+      accountId,
+      address: account.address,
+      enabled,
     };
   }
 
@@ -1805,6 +1853,7 @@ export class AdminService {
       ConfigService.MAX_CYCLE_SECONDS_KEY,
       ConfigService.MINER_EXTENDED_PER_CYCLE_SECONDS_KEY,
       ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY,
+      ConfigService.FEE_EXEMPT_MIN_VIP_LEVEL_KEY,
     ]);
 
     if (positiveIntegerKeys.has(key)) {

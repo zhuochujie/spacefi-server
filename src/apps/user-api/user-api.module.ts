@@ -11,6 +11,7 @@ import { ConfigModule } from 'src/config/config.module';
 import { DatabaseModule } from 'src/infrastructure/database.module';
 import { JwtModule } from 'src/infrastructure/jwt.module';
 import { MinerModule } from 'src/miner/miner.module';
+import { MarketModule } from 'src/market/market.module';
 import { NonceModule } from 'src/nonce/nonce.module';
 import { NoticeModule } from 'src/notice/notice.module';
 import { TestModule } from 'src/test/test.module';
@@ -33,6 +34,7 @@ import { UserDataInitializerService } from './user-data-initializer.service';
     NonceModule,
     Web3Module,
     MinerModule,
+    MarketModule,
     ConfigModule,
     NoticeModule,
     // TestModule,

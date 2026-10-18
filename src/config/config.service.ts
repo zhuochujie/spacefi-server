@@ -20,6 +20,7 @@ export class ConfigService {
     'MINER_EXTENDED_PER_CYCLE_SECONDS';
   static readonly CYCLE_REWARD_BP_KEY = 'CYCLE_REWARD_BP';
   static readonly FEE_EXEMPT_MIN_NODE_LEVEL_KEY = 'FEE_EXEMPT_MIN_NODE_LEVEL';
+  static readonly FEE_EXEMPT_MIN_VIP_LEVEL_KEY = 'FEE_EXEMPT_MIN_VIP_LEVEL';
   static readonly USDT_DIVIDEND_FEE_BP_KEY = 'USDT_DIVIDEND_FEE_BP';
   static readonly COMMISSION_MID_MINER_PRICE_WEI_KEY =
     'COMMISSION_MID_MINER_PRICE_WEI';
@@ -130,15 +131,22 @@ export class ConfigService {
     };
   }
 
-  async getFeeExemptMinNodeLevel() {
-    const config = await this.configRepository.findOne({
-      where: { key: ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY },
-    });
-
-    return this.parsePositiveInteger(
+  async getMarketMakerEligibilityConfig() {
+    const configMap = await this.getConfigMap([
       ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY,
-      config?.value,
-    );
+      ConfigService.FEE_EXEMPT_MIN_VIP_LEVEL_KEY,
+    ]);
+
+    return {
+      nodeLevel: this.parsePositiveInteger(
+        ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY,
+        configMap.get(ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY),
+      ),
+      vipLevel: this.parsePositiveInteger(
+        ConfigService.FEE_EXEMPT_MIN_VIP_LEVEL_KEY,
+        configMap.get(ConfigService.FEE_EXEMPT_MIN_VIP_LEVEL_KEY),
+      ),
+    };
   }
 
   async getUsdtDividendFeeBp() {
@@ -258,7 +266,13 @@ export class ConfigService {
       {
         key: ConfigService.FEE_EXEMPT_MIN_NODE_LEVEL_KEY,
         value: '4',
-        desc: '申请做市商所需最低节点等级；',
+        desc: '申请做市商要求的节点等级，必须等于该值；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.FEE_EXEMPT_MIN_VIP_LEVEL_KEY,
+        value: '3',
+        desc: '申请做市商所需最低有效 VIP 等级；',
         isAdminEditable: true,
       },
       {

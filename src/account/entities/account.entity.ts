@@ -28,6 +28,12 @@ export class Account {
   @Column({ default: 0 })
   nodeLevel!: number;
 
+  @Column({ default: false })
+  isMarketMaker!: boolean;
+
+  @Column({ type: 'integer', nullable: true })
+  marketMakerSyncedAt!: number | null;
+
   @Column({ type: 'integer', default: 0 })
   createdAt!: number;
 

@@ -38,6 +38,9 @@ import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
 import { AdminTeamMinerPurchaseStatsQueryDto } from './dto/admin-team-miner-purchase-stats-query.dto';
 import { MaintenanceService } from 'src/maintenance/maintenance.service';
 import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto';
+import { MarketService } from 'src/market/market.service';
+import { AdminUpdateMarketVolumeAdjustmentDto } from './dto/admin-update-market-volume-adjustment.dto';
+import { AdminUpdateMarketMakerWhitelistDto } from './dto/admin-update-market-maker-whitelist.dto';
 
 @Admin()
 @Controller('admin')
@@ -45,6 +48,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly maintenanceService: MaintenanceService,
+    private readonly marketService: MarketService,
   ) {}
 
   @Get('profile')
@@ -79,6 +83,19 @@ export class AdminController {
   @AdminAction('修改系统维护状态')
   updateMaintenance(@Body() dto: UpdateMaintenanceDto) {
     return this.maintenanceService.setEnabled(dto.enabled);
+  }
+
+  @Get('market/trade-volume-adjustment')
+  getMarketTradeVolumeAdjustment() {
+    return this.marketService.getTradeVolumeAdjustment();
+  }
+
+  @Put('market/trade-volume-adjustment')
+  @AdminAction('修改市场交易量调整值')
+  updateMarketTradeVolumeAdjustment(
+    @Body() dto: AdminUpdateMarketVolumeAdjustmentDto,
+  ) {
+    return this.marketService.setTradeVolumeAdjustment(dto.amount);
   }
 
   @Get('miners')
@@ -206,6 +223,18 @@ export class AdminController {
     @Body() dto: AdminUpdateUserLevelsDto,
   ) {
     return this.adminService.updateUserLevels(accountId, dto);
+  }
+
+  @Put('users/:accountId/market-maker-whitelist')
+  @AdminAction('修改做市商申请白名单')
+  updateMarketMakerWhitelist(
+    @Param('accountId', ParseIntPipe) accountId: number,
+    @Body() dto: AdminUpdateMarketMakerWhitelistDto,
+  ) {
+    return this.adminService.updateMarketMakerWhitelist(
+      accountId,
+      dto.enabled,
+    );
   }
 
   @Get('users/:accountId/balance-logs')

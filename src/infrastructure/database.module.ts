@@ -5,6 +5,7 @@ import { AccountBalanceLog } from 'src/account/entities/account-balance-log.enti
 import { AccountRelation } from 'src/account/entities/account-relation.entity';
 import { AccountWithdrawSignature } from 'src/account/entities/account-withdraw-signature.entity';
 import { Account } from 'src/account/entities/account.entity';
+import { MarketMakerWhitelist } from 'src/account/entities/market-maker-whitelist.entity';
 import { DividendLevelStat } from 'src/account/entities/dividend-level-stat.entity';
 import { AdminUser } from 'src/admin-auth/entities/admin-user.entity';
 import {
@@ -22,6 +23,7 @@ import { Notice } from 'src/notice/entities/Notice.entity';
 
 const entities = [
   Account,
+  MarketMakerWhitelist,
   AccountRelation,
   AccountBalanceLog,
   AccountWithdrawSignature,

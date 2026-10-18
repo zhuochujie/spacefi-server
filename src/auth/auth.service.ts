@@ -112,6 +112,8 @@ export class AuthService {
       balance: account.balance,
       usdtBalance: account.usdtBalance,
       canInvite,
+      isMarketMaker: account.isMarketMaker,
+      marketMakerSyncedAt: account.marketMakerSyncedAt,
       createdAt: account.createdAt,
     };
   }
