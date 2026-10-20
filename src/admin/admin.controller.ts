@@ -77,10 +77,10 @@ export class AdminController {
     return this.buybackService.getAdminSignatures(query.page, query.pageSize);
   }
 
-  @Put('buyback/pool-usdt')
-  @AdminAction('设置回购池USDT余额')
-  setBuybackPoolUsdt(@Body() dto: BuybackAmountDto) {
-    return this.buybackService.setPoolUsdt(dto.amount);
+  @Post('buyback/pool-usdt/add')
+  @AdminAction('增加回购池USDT额度')
+  addBuybackPoolUsdt(@Body() dto: BuybackAmountDto) {
+    return this.buybackService.addPoolUsdt(dto.amount);
   }
 
   @Get('users')

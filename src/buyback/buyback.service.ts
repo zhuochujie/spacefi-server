@@ -226,16 +226,17 @@ export class BuybackService {
     return { list, total, page, pageSize };
   }
 
-  async setPoolUsdt(amount: string) {
-    const value = this.nonNegativeAmount(amount);
+  async addPoolUsdt(amount: string) {
+    const value = this.positiveAmount(amount);
     return this.dataSource.transaction(async (manager) => {
       const pool = await this.lockPool(manager);
       const before = pool.availableUsdt;
-      pool.availableUsdt = value.toString();
+      pool.availableUsdt = (BigInt(before) + value).toString();
       pool.updatedAt = Math.floor(Date.now() / 1000);
       await manager.save(pool);
       return {
         before,
+        addedAmount: value.toString(),
         availableUsdt: pool.availableUsdt,
         updatedAt: pool.updatedAt,
       };
@@ -779,12 +780,6 @@ export class BuybackService {
   private positiveAmount(value: string) {
     const amount = BigInt(value);
     if (amount <= 0n) throw new BadRequestException('INVALID_AMOUNT');
-    return amount;
-  }
-
-  private nonNegativeAmount(value: string) {
-    const amount = BigInt(value);
-    if (amount < 0n) throw new BadRequestException('INVALID_AMOUNT');
     return amount;
   }
 

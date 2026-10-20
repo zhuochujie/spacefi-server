@@ -53,7 +53,7 @@ nonce标记已使用
 
 前端等待交易回执后只提交 nonce，BullMQ 立即检查，定时任务兜底。
 
-`available_usdt` 由管理后台直接设置，作为用户卖出 SPACE 时的平台支付额度。
+`available_usdt` 由管理后台手动增加，作为用户卖出 SPACE 时的平台支付额度。
 该数值只是后台账面额度，设置前必须确保 Mining 合约中有足够的实际 USDT。
 
 ## 3. 普通用户卖出 SPACE
