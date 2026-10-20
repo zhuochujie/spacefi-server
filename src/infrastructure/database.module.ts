@@ -20,6 +20,10 @@ import { FreeMiner } from 'src/miner/entities/free-miner.entity';
 import { MinerPurchaseSignature } from 'src/miner/entities/miner-purchase-signature.entity';
 import { Miner } from 'src/miner/entities/miner.entity';
 import { Notice } from 'src/notice/entities/Notice.entity';
+import { BuybackPoolState } from 'src/buyback/entities/buyback-pool-state.entity';
+import { BuybackSignature } from 'src/buyback/entities/buyback-signature.entity';
+import { BuybackTrade } from 'src/buyback/entities/buyback-trade.entity';
+import { BuybackBalanceLog } from 'src/buyback/entities/buyback-balance-log.entity';
 
 const entities = [
   Account,
@@ -36,6 +40,10 @@ const entities = [
   MinerPurchaseSignature,
   FreeMiner,
   Notice,
+  BuybackPoolState,
+  BuybackSignature,
+  BuybackTrade,
+  BuybackBalanceLog,
 ];
 
 @Global()

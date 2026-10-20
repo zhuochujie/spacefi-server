@@ -41,6 +41,8 @@ import { UpdateMaintenanceDto } from 'src/maintenance/dto/update-maintenance.dto
 import { MarketService } from 'src/market/market.service';
 import { AdminUpdateMarketVolumeAdjustmentDto } from './dto/admin-update-market-volume-adjustment.dto';
 import { AdminUpdateMarketMakerWhitelistDto } from './dto/admin-update-market-maker-whitelist.dto';
+import { BuybackService } from 'src/buyback/buyback.service';
+import { BuybackAmountDto } from 'src/buyback/dto/buyback-amount.dto';
 
 @Admin()
 @Controller('admin')
@@ -49,6 +51,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly maintenanceService: MaintenanceService,
     private readonly marketService: MarketService,
+    private readonly buybackService: BuybackService,
   ) {}
 
   @Get('profile')
@@ -57,6 +60,27 @@ export class AdminController {
       id: account.sub,
       username: account.username,
     };
+  }
+
+  @Get('buyback/overview')
+  getBuybackOverview() {
+    return this.buybackService.getAdminOverview();
+  }
+
+  @Get('buyback/trades')
+  getBuybackTrades(@Query() query: AdminPageQueryDto) {
+    return this.buybackService.getAdminTrades(query.page, query.pageSize);
+  }
+
+  @Get('buyback/signatures')
+  getBuybackSignatures(@Query() query: AdminPageQueryDto) {
+    return this.buybackService.getAdminSignatures(query.page, query.pageSize);
+  }
+
+  @Put('buyback/pool-usdt')
+  @AdminAction('设置回购池USDT余额')
+  setBuybackPoolUsdt(@Body() dto: BuybackAmountDto) {
+    return this.buybackService.setPoolUsdt(dto.amount);
   }
 
   @Get('users')
@@ -231,10 +255,7 @@ export class AdminController {
     @Param('accountId', ParseIntPipe) accountId: number,
     @Body() dto: AdminUpdateMarketMakerWhitelistDto,
   ) {
-    return this.adminService.updateMarketMakerWhitelist(
-      accountId,
-      dto.enabled,
-    );
+    return this.adminService.updateMarketMakerWhitelist(accountId, dto.enabled);
   }
 
   @Get('users/:accountId/balance-logs')

@@ -48,6 +48,7 @@ import { AdminTransferUserBalanceDto } from './dto/admin-transfer-user-balance.d
 import { AdminTeamMembersQueryDto } from './dto/admin-team-members-query.dto';
 import { AdminDeleteUserDto } from './dto/admin-delete-user.dto';
 import { AdminTeamMinerPurchaseStatsQueryDto } from './dto/admin-team-miner-purchase-stats-query.dto';
+import { isAddress, zeroAddress } from 'viem';
 
 @Injectable()
 export class AdminService {
@@ -1812,6 +1813,22 @@ export class AdminService {
     key: string,
     value: string,
   ) {
+    if (key === ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY) {
+      if (!isAddress(value) || value.toLowerCase() === zeroAddress) {
+        throw new BadRequestException('INVALID_CONFIG_FORMAT');
+      }
+      const account = await this.dataSource
+        .getRepository(Account)
+        .createQueryBuilder('account')
+        .select('account.id')
+        .where('lower(account.address) = :address', {
+          address: value.toLowerCase(),
+        })
+        .getOne();
+      if (!account) throw new BadRequestException('ACCOUNT_NOT_FOUND');
+      return;
+    }
+
     if (!/^\d+$/.test(value)) {
       throw new BadRequestException('INVALID_CONFIG_FORMAT');
     }
@@ -1824,6 +1841,8 @@ export class AdminService {
       ConfigService.USDT_DIVIDEND_FEE_BP_KEY,
       ConfigService.TEAM_REWARD_BP_KEY,
       ConfigService.FREE_MINER_CYCLE_REWARD_BP_KEY,
+      ConfigService.BUYBACK_SELL_FEE_BP_KEY,
+      ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
     ]);
 
     if (bpKeys.has(key) && numericValue > 10000n) {
@@ -1861,6 +1880,52 @@ export class AdminService {
       if (!Number.isSafeInteger(numberValue) || numberValue <= 0) {
         throw new BadRequestException('INVALID_CONFIG_FORMAT');
       }
+    }
+
+    const positiveBigIntKeys = new Set([
+      ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
+      ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
+      ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
+      ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+    ]);
+    if (positiveBigIntKeys.has(key) && numericValue <= 0n) {
+      throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
+
+    const buybackPricePair =
+      key === ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY ||
+      key === ConfigService.BUYBACK_SELL_MIN_PRICE_KEY
+        ? [
+            ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
+            ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+          ]
+        : key === ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY ||
+            key === ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY
+          ? [
+              ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+              ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+            ]
+          : undefined;
+    if (buybackPricePair) {
+      const [defaultKey, boundKey] = buybackPricePair;
+      const otherKey = key === defaultKey ? boundKey : defaultKey;
+      const otherConfig = await configRepository.findOne({
+        where: { key: otherKey },
+      });
+      if (!otherConfig) throw new BadRequestException('CONFIG_NOT_FOUND');
+      const defaultPrice =
+        key === defaultKey ? numericValue : BigInt(otherConfig.value);
+      const boundPrice =
+        key === boundKey ? numericValue : BigInt(otherConfig.value);
+      const invalid =
+        defaultKey === ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY
+          ? boundPrice > defaultPrice
+          : defaultPrice > boundPrice;
+      if (invalid) throw new BadRequestException('INVALID_CONFIG_FORMAT');
     }
 
     if (key === ConfigService.SPACE_USDT_PRICE_WEI_KEY && numericValue <= 0n) {
@@ -1911,10 +1976,34 @@ export class AdminService {
     }
 
     if (
-      key === ConfigService.FREE_MINER_CAN_INVITE_KEY &&
+      (key === ConfigService.FREE_MINER_CAN_INVITE_KEY ||
+        key === ConfigService.BUYBACK_ENABLED_KEY ||
+        key === ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY) &&
       !['0', '1'].includes(value)
     ) {
       throw new BadRequestException('INVALID_CONFIG_FORMAT');
+    }
+
+    if (key === ConfigService.BUYBACK_ENABLED_KEY && value === '1') {
+      const receiverConfig = await configRepository.findOne({
+        where: { key: ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY },
+      });
+      if (
+        !receiverConfig ||
+        !isAddress(receiverConfig.value) ||
+        receiverConfig.value.toLowerCase() === zeroAddress
+      ) {
+        throw new BadRequestException('INVALID_CONFIG_FORMAT');
+      }
+      const receiverAccount = await this.dataSource
+        .getRepository(Account)
+        .createQueryBuilder('account')
+        .select('account.id')
+        .where('lower(account.address) = :address', {
+          address: receiverConfig.value.toLowerCase(),
+        })
+        .getOne();
+      if (!receiverAccount) throw new BadRequestException('ACCOUNT_NOT_FOUND');
     }
   }
 

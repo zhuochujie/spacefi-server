@@ -25,6 +25,12 @@ export class Account {
   @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
   usdtBalance!: string;
 
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  buybackSpaceBalance!: string;
+
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  buybackUsdtBalance!: string;
+
   @Column({ default: 0 })
   nodeLevel!: number;
 

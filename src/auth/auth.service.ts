@@ -111,6 +111,8 @@ export class AuthService {
       nodeLevel: account.nodeLevel,
       balance: account.balance,
       usdtBalance: account.usdtBalance,
+      buybackSpaceBalance: account.buybackSpaceBalance,
+      buybackUsdtBalance: account.buybackUsdtBalance,
       canInvite,
       isMarketMaker: account.isMarketMaker,
       marketMakerSyncedAt: account.marketMakerSyncedAt,

@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { AccountService } from 'src/account/account.service';
 import { MinerService } from 'src/miner/miner.service';
 import { TelegramNotificationService } from 'src/notification/telegram-notification.service';
+import { BuybackService } from 'src/buyback/buyback.service';
 
 @Injectable()
 export class TaskSchedulerService {
@@ -12,6 +13,7 @@ export class TaskSchedulerService {
     private readonly accountService: AccountService,
     private readonly minerService: MinerService,
     private readonly telegramNotificationService: TelegramNotificationService,
+    private readonly buybackService: BuybackService,
   ) {}
 
   @Cron('30 0 * * *', { timeZone: 'Asia/Shanghai' })
@@ -52,6 +54,20 @@ export class TaskSchedulerService {
   checkPurchaseMinerSignature() {
     return this.runTask('check-purchase-miner-signature', () =>
       this.minerService.checkPurchaseMinerSignatureTask(),
+    );
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES, { timeZone: 'Asia/Shanghai' })
+  checkBuybackSignatures() {
+    return this.runTask('check-buyback-signatures', () =>
+      this.buybackService.checkExpiredSignatures(),
+    );
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { timeZone: 'Asia/Shanghai' })
+  resetBuybackDailyState() {
+    return this.runTask('reset-buyback-daily-state', () =>
+      this.buybackService.resetDailyState(),
     );
   }
 

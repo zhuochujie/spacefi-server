@@ -8,6 +8,7 @@ import {
   DividendRuleCategory,
 } from './entities/dividend-rule.entity';
 import { AccountBalanceLogToken } from 'src/account/entities/account-balance-log.entity';
+import { isAddress, zeroAddress } from 'viem';
 
 @Injectable()
 export class ConfigService {
@@ -33,6 +34,27 @@ export class ConfigService {
   static readonly FREE_MINER_PRICE_WEI_KEY = 'FREE_MINER_PRICE_WEI';
   static readonly FREE_MINER_CYCLE_REWARD_BP_KEY = 'FREE_MINER_CYCLE_REWARD_BP';
   static readonly FREE_MINER_CAN_INVITE_KEY = 'FREE_MINER_CAN_INVITE';
+  static readonly BUYBACK_ENABLED_KEY = 'BUYBACK_ENABLED';
+  static readonly BUYBACK_SELL_DEFAULT_PRICE_KEY =
+    'BUYBACK_SELL_DEFAULT_PRICE_WEI';
+  static readonly BUYBACK_SELL_STEP_AMOUNT_KEY = 'BUYBACK_SELL_STEP_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_STEP_DECREASE_KEY =
+    'BUYBACK_SELL_STEP_DECREASE_WEI';
+  static readonly BUYBACK_SELL_MIN_PRICE_KEY = 'BUYBACK_SELL_MIN_PRICE_WEI';
+  static readonly BUYBACK_SELL_FEE_BP_KEY = 'BUYBACK_SELL_FEE_BP';
+  static readonly BUYBACK_MAKER_DEFAULT_PRICE_KEY =
+    'BUYBACK_MAKER_DEFAULT_PRICE_WEI';
+  static readonly BUYBACK_MAKER_STEP_AMOUNT_KEY =
+    'BUYBACK_MAKER_STEP_AMOUNT_WEI';
+  static readonly BUYBACK_MAKER_STEP_INCREASE_KEY =
+    'BUYBACK_MAKER_STEP_INCREASE_WEI';
+  static readonly BUYBACK_MAKER_MAX_PRICE_KEY = 'BUYBACK_MAKER_MAX_PRICE_WEI';
+  static readonly BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY =
+    'BUYBACK_MAKER_FEE_SUBSIDY_ENABLED';
+  static readonly BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY =
+    'BUYBACK_MAKER_FEE_SUBSIDY_BP';
+  static readonly BUYBACK_FEE_RECEIVER_ADDRESS_KEY =
+    'BUYBACK_FEE_RECEIVER_ADDRESS';
 
   constructor(
     @InjectRepository(Config)
@@ -197,6 +219,88 @@ export class ConfigService {
     );
   }
 
+  async getBuybackConfig() {
+    const keys = [
+      ConfigService.BUYBACK_ENABLED_KEY,
+      ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
+      ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
+      ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+      ConfigService.BUYBACK_SELL_FEE_BP_KEY,
+      ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
+      ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY,
+      ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
+      ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
+    ];
+    const configMap = await this.getConfigMap(keys);
+
+    const result = {
+      enabled: this.parseBooleanLike(
+        ConfigService.BUYBACK_ENABLED_KEY,
+        configMap.get(ConfigService.BUYBACK_ENABLED_KEY),
+      ),
+      sellDefaultPrice: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY),
+      ),
+      sellStepAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY),
+      ),
+      sellStepDecrease: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY),
+      ),
+      sellMinPrice: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_MIN_PRICE_KEY),
+      ),
+      sellFeeBp: this.parseBp(
+        ConfigService.BUYBACK_SELL_FEE_BP_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_FEE_BP_KEY),
+      ),
+      makerDefaultPrice: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY),
+      ),
+      makerStepAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY),
+      ),
+      makerStepIncrease: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY),
+      ),
+      makerMaxPrice: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY),
+      ),
+      makerFeeSubsidyEnabled: this.parseBooleanLike(
+        ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY),
+      ),
+      makerFeeSubsidyBp: this.parseBp(
+        ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY),
+      ),
+      feeReceiverAddress: this.parseAddress(
+        ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
+        configMap.get(ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY),
+      ),
+    };
+    if (
+      result.sellMinPrice > result.sellDefaultPrice ||
+      result.makerDefaultPrice > result.makerMaxPrice ||
+      (result.enabled && result.feeReceiverAddress === zeroAddress)
+    ) {
+      throw new CustomException('INVALID_CONFIG_FORMAT', 500);
+    }
+    return result;
+  }
+
   async getDividendRules(
     category: DividendRuleCategory,
     token: AccountBalanceLogToken,
@@ -327,6 +431,84 @@ export class ConfigService {
         key: ConfigService.FREE_MINER_CAN_INVITE_KEY,
         value: '1',
         desc: '免费矿机是否可以邀请，1 表示可以，0 表示不可以；付费矿机邀请不受影响',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_ENABLED_KEY,
+        value: '0',
+        desc: '回购功能开关，1开启，0关闭；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
+        value: '200000000000000000',
+        desc: '用户卖出SPACE每日默认价格，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
+        value: '1000000000000000000000',
+        desc: '用户每日累计卖出达到该SPACE数量后价格下降一档；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
+        value: '10000000000000000',
+        desc: '用户卖出价格每档下降数量，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+        value: '10000000000000000',
+        desc: '用户卖出最低价格，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_FEE_BP_KEY,
+        value: '1000',
+        desc: '用户卖出SPACE手续费比例，单位BP，1000表示10%；手续费留在回购池',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+        value: '600000000000000000',
+        desc: '做市商买入SPACE每日默认价格，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+        value: '1000000000000000000000',
+        desc: '做市商每日累计买入达到该SPACE数量后价格上涨一档；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
+        value: '1000000000000000000',
+        desc: '做市商买入价格每档上涨数量，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+        value: '10000000000000000000',
+        desc: '做市商买入最高价格，USDT wei；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY,
+        value: '1',
+        desc: '做市商购买手续费补贴开关，1开启，0关闭',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
+        value: '1000',
+        desc: '做市商购买额外SPACE补贴比例，单位BP，1000表示10%',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
+        value: '0x0000000000000000000000000000000000000000',
+        desc: '做市商购买USDT六分之一接收账户钱包地址；启用回购前必须配置',
         isAdminEditable: true,
       },
     ];
@@ -530,5 +712,15 @@ export class ConfigService {
     }
 
     throw new CustomException('INVALID_CONFIG_FORMAT', 500);
+  }
+
+  private parseAddress(key: string, value?: string) {
+    if (value === undefined) {
+      throw new CustomException('CONFIG_NOT_FOUND', 500);
+    }
+    if (!isAddress(value)) {
+      throw new CustomException('INVALID_CONFIG_FORMAT', 500);
+    }
+    return value.toLowerCase();
   }
 }
