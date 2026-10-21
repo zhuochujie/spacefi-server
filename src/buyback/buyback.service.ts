@@ -441,10 +441,9 @@ export class BuybackService {
     });
   }
 
-  async quote(accountId: number, amount: string, makerBuy: boolean) {
+  async quote(_accountId: number, amount: string, makerBuy: boolean) {
     const space = this.positiveAmount(amount);
-    const [account, pool, config] = await Promise.all([
-      this.getAccount(accountId),
+    const [pool, config] = await Promise.all([
       this.dataSource
         .getRepository(BuybackPoolState)
         .findOne({ where: { id: 1 } }),
@@ -452,8 +451,6 @@ export class BuybackService {
     ]);
     if (!pool) throw new NotFoundException('BUYBACK_POOL_NOT_FOUND');
     if (!config.enabled) throw new ForbiddenException('BUYBACK_DISABLED');
-    if (makerBuy && !account.isMarketMaker)
-      throw new ForbiddenException('MARKET_MAKER_REQUIRED');
     const state = this.normalizeDailyState(pool);
     const quote = makerBuy
       ? this.calculateTiered(

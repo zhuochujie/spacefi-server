@@ -446,10 +446,22 @@ export class AdminService {
       }[]
     >(
       `
+      WITH account_totals AS (
+        SELECT
+          COALESCE(SUM(balance + buyback_space_balance), 0) AS space_balance,
+          COALESCE(SUM(usdt_balance + buyback_usdt_balance), 0) AS usdt_balance
+        FROM account
+      )
       SELECT
-        COALESCE(SUM(balance), 0)::text AS "spaceBalance",
-        COALESCE(SUM(usdt_balance), 0)::text AS "usdtBalance"
-      FROM account
+        (
+          account_totals.space_balance
+          + COALESCE((SELECT available_space FROM buyback_pool_state WHERE id = 1), 0)
+        )::text AS "spaceBalance",
+        (
+          account_totals.usdt_balance
+          + COALESCE((SELECT available_usdt FROM buyback_pool_state WHERE id = 1), 0)
+        )::text AS "usdtBalance"
+      FROM account_totals
       `,
     );
 
