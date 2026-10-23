@@ -203,7 +203,14 @@ export class Web3Service {
     return { value, signature };
   }
 
-  async getPurchaseMinerNoncesUsed(nonces: string[]): Promise<boolean[]> {
+  getLatestBlock() {
+    return this.publicClient.getBlock({ blockTag: 'latest' });
+  }
+
+  async getPurchaseMinerNoncesUsed(
+    nonces: string[],
+    blockNumber?: bigint,
+  ): Promise<boolean[]> {
     if (nonces.length === 0) {
       return [];
     }
@@ -216,12 +223,16 @@ export class Web3Service {
         args: [nonce],
       })),
       allowFailure: false,
+      blockNumber,
     });
 
     return results as unknown as boolean[];
   }
 
-  async getClaimNoncesUsed(nonces: string[]): Promise<boolean[]> {
+  async getClaimNoncesUsed(
+    nonces: string[],
+    blockNumber?: bigint,
+  ): Promise<boolean[]> {
     if (nonces.length === 0) {
       return [];
     }
@@ -234,12 +245,16 @@ export class Web3Service {
         args: [nonce],
       })),
       allowFailure: false,
+      blockNumber,
     });
 
     return results as unknown as boolean[];
   }
 
-  async getWithdrawUsdtNoncesUsed(nonces: string[]): Promise<boolean[]> {
+  async getWithdrawUsdtNoncesUsed(
+    nonces: string[],
+    blockNumber?: bigint,
+  ): Promise<boolean[]> {
     if (nonces.length === 0) {
       return [];
     }
@@ -252,6 +267,7 @@ export class Web3Service {
         args: [nonce],
       })),
       allowFailure: false,
+      blockNumber,
     });
 
     return results as unknown as boolean[];

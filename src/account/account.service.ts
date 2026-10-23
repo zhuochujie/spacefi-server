@@ -823,10 +823,20 @@ export class AccountService {
       return;
     }
 
-    const usedResults = await this.getWithdrawSignaturesUsed(signatures);
+    const latestBlock = await this.web3Service.getLatestBlock();
+    const usedResults = await this.getWithdrawSignaturesUsed(
+      signatures,
+      latestBlock.number,
+    );
 
     for (let index = 0; index < signatures.length; index += 1) {
       try {
+        if (
+          !usedResults[index] &&
+          latestBlock.timestamp <= BigInt(signatures[index].deadline)
+        ) {
+          continue;
+        }
         await this.processWithdrawSignature(
           signatures[index],
           usedResults[index],
@@ -934,6 +944,7 @@ export class AccountService {
 
   private async getWithdrawSignaturesUsed(
     signatures: AccountWithdrawSignature[],
+    blockNumber?: bigint,
   ) {
     const usedResults = new Map<number, boolean>();
     const spaceSignatures = signatures.filter(
@@ -945,6 +956,7 @@ export class AccountService {
 
     const spaceUsedResults = await this.web3Service.getClaimNoncesUsed(
       spaceSignatures.map((signature) => signature.nonce),
+      blockNumber,
     );
     spaceSignatures.forEach((signature, index) => {
       usedResults.set(signature.id, spaceUsedResults[index]);
@@ -952,6 +964,7 @@ export class AccountService {
 
     const usdtUsedResults = await this.web3Service.getWithdrawUsdtNoncesUsed(
       usdtSignatures.map((signature) => signature.nonce),
+      blockNumber,
     );
     usdtSignatures.forEach((signature, index) => {
       usedResults.set(signature.id, usdtUsedResults[index]);

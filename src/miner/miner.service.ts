@@ -872,13 +872,26 @@ export class MinerService {
       },
     });
 
+    if (list.length === 0) {
+      return;
+    }
+
+    const latestBlock = await this.web3Service.getLatestBlock();
+
     const usedResults = await this.web3Service.getPurchaseMinerNoncesUsed(
       list.map((minerPurchaseSignature) => minerPurchaseSignature.nonce),
+      latestBlock.number,
     );
 
     for (const [index, minerPurchaseSignature] of list.entries()) {
       try {
         const isUsed = usedResults[index];
+        if (
+          !isUsed &&
+          latestBlock.timestamp <= BigInt(minerPurchaseSignature.deadline)
+        ) {
+          continue;
+        }
         await this.processPurchaseMinerSignature(
           minerPurchaseSignature,
           isUsed,

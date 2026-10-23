@@ -426,8 +426,14 @@ export class BuybackService {
       },
       order: { id: 'ASC' },
     });
+
+    if (records.length === 0) return;
+
+    const latestBlock = await this.web3Service.getLatestBlock();
     for (const record of records) {
-      await this.settleSignature(record.id, await this.isNonceUsed(record));
+      const used = await this.isNonceUsed(record, latestBlock.number);
+      if (!used && latestBlock.timestamp <= BigInt(record.deadline)) continue;
+      await this.settleSignature(record.id, used);
     }
   }
 
@@ -750,19 +756,23 @@ export class BuybackService {
     });
   }
 
-  private async isNonceUsed(record: BuybackSignature) {
+  private async isNonceUsed(record: BuybackSignature, blockNumber?: bigint) {
     if (record.kind === BuybackSignatureKind.Deposit) {
       return this.web3Service.publicClient.readContract({
         address: buybackAddress(),
         abi: buybackAbi,
         functionName: 'usedDepositNonces',
         args: [record.nonce],
+        blockNumber,
       });
     }
     const [used] =
       record.token === BuybackToken.Space
-        ? await this.web3Service.getClaimNoncesUsed([record.nonce])
-        : await this.web3Service.getWithdrawUsdtNoncesUsed([record.nonce]);
+        ? await this.web3Service.getClaimNoncesUsed([record.nonce], blockNumber)
+        : await this.web3Service.getWithdrawUsdtNoncesUsed(
+            [record.nonce],
+            blockNumber,
+          );
     return used;
   }
 
