@@ -9,6 +9,7 @@ export enum AdminAccountSortBy {
   VipLevel = 'vipLevel',
   ManualVipLevel = 'manualVipLevel',
   NodeLevel = 'nodeLevel',
+  IsMarketMaker = 'isMarketMaker',
   TeamCount = 'teamCount',
   TeamPerformance = 'teamPerformance',
 }
@@ -54,7 +55,7 @@ export class AdminAccountListQueryDto {
   @IsOptional()
   sortBy = AdminAccountSortBy.CreatedAt;
 
-  @Transform(({ value }) =>
+  @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.toUpperCase() : value,
   )
   @IsEnum(AdminSortOrder)

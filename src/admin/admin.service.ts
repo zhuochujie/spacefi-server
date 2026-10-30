@@ -67,6 +67,7 @@ export class AdminService {
         balance: string;
         usdtBalance: string;
         nodeLevel: number;
+        isMarketMaker: boolean;
         createdAt: number;
         teamCount: number | string;
         teamPerformance: string;
@@ -94,6 +95,7 @@ export class AdminService {
         account.balance::text AS balance,
         account.usdt_balance::text AS "usdtBalance",
         account.node_level AS "nodeLevel",
+        account.is_market_maker AS "isMarketMaker",
         account.created_at AS "createdAt",
         COALESCE(team_stats.team_count, 0) AS "teamCount",
         COALESCE(team_stats.team_performance, '0') AS "teamPerformance",
@@ -894,10 +896,7 @@ export class AdminService {
     };
   }
 
-  async addUserSystemReward(
-    accountId: number,
-    dto: AdminAddSystemRewardDto,
-  ) {
+  async addUserSystemReward(accountId: number, dto: AdminAddSystemRewardDto) {
     return await this.dataSource.transaction(async (manager) => {
       const accountRepository = manager.getRepository(Account);
       const balanceLogRepository = manager.getRepository(AccountBalanceLog);
@@ -1102,9 +1101,7 @@ export class AdminService {
         throw new BadRequestException('确认地址与用户地址不一致');
       }
 
-      const subordinateCountResult = await manager.query<
-        { count: string }[]
-      >(
+      const subordinateCountResult = await manager.query<{ count: string }[]>(
         `
         SELECT COUNT(*)::text AS count
         FROM account_relation
@@ -1549,10 +1546,7 @@ export class AdminService {
     };
   }
 
-  async getUserTeamMembers(
-    accountId: number,
-    query: AdminTeamMembersQueryDto,
-  ) {
+  async getUserTeamMembers(accountId: number, query: AdminTeamMembersQueryDto) {
     await this.ensureAccountExists(accountId);
 
     const conditions = ['relation.superior_id = $1'];
@@ -1790,6 +1784,7 @@ export class AdminService {
       [AdminAccountSortBy.VipLevel]: 'account.vip_level',
       [AdminAccountSortBy.ManualVipLevel]: 'account.manual_vip_level',
       [AdminAccountSortBy.NodeLevel]: 'account.node_level',
+      [AdminAccountSortBy.IsMarketMaker]: 'account.is_market_maker',
       [AdminAccountSortBy.TeamCount]: 'COALESCE(team_stats.team_count, 0)',
       [AdminAccountSortBy.TeamPerformance]: `COALESCE(team_stats.team_performance, '0')::numeric`,
     };

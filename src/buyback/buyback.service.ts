@@ -33,6 +33,7 @@ import { BuybackPoolState } from './entities/buyback-pool-state.entity';
 import { BuybackSignature } from './entities/buyback-signature.entity';
 import { BuybackTrade } from './entities/buyback-trade.entity';
 import { keccak256, stringToBytes } from 'viem';
+import { calculateSellQuotaRateBp } from './buyback-sell-quota.util';
 
 const WEI = 10n ** 18n;
 
@@ -79,6 +80,15 @@ export class BuybackService {
       config.makerMaxPrice,
       true,
     );
+    const sellQuota = await this.getDailySellQuota(
+      this.dataSource.manager,
+      accountId,
+      BigInt(pool.availableUsdt),
+    );
+    const maxSellSpace =
+      BigInt(account.buybackSpaceBalance) < sellQuota.remainingSellQuota
+        ? BigInt(account.buybackSpaceBalance)
+        : sellQuota.remainingSellQuota;
     return {
       enabled: config.enabled,
       isMarketMaker: account.isMarketMaker,
@@ -93,6 +103,12 @@ export class BuybackService {
       makerFeeSubsidyBp: config.makerFeeSubsidyBp.toString(),
       dailySellSpace: state.dailySellSpace.toString(),
       dailyMakerBuySpace: state.dailyMakerBuySpace.toString(),
+      activeMinerPrincipal: sellQuota.activeMinerPrincipal.toString(),
+      sellQuotaRateBp: sellQuota.sellQuotaRateBp.toString(),
+      dailySellQuota: sellQuota.dailySellQuota.toString(),
+      userDailySoldSpace: sellQuota.userDailySoldSpace.toString(),
+      remainingSellQuota: sellQuota.remainingSellQuota.toString(),
+      maxSellSpace: maxSellSpace.toString(),
     };
   }
 
@@ -447,7 +463,7 @@ export class BuybackService {
     });
   }
 
-  async quote(_accountId: number, amount: string, makerBuy: boolean) {
+  async quote(accountId: number, amount: string, makerBuy: boolean) {
     const space = this.positiveAmount(amount);
     const [pool, config] = await Promise.all([
       this.dataSource
@@ -457,6 +473,15 @@ export class BuybackService {
     ]);
     if (!pool) throw new NotFoundException('BUYBACK_POOL_NOT_FOUND');
     if (!config.enabled) throw new ForbiddenException('BUYBACK_DISABLED');
+    if (!makerBuy) {
+      const sellQuota = await this.getDailySellQuota(
+        this.dataSource.manager,
+        accountId,
+        BigInt(pool.availableUsdt),
+      );
+      if (space > sellQuota.remainingSellQuota)
+        throw new ConflictException('BUYBACK_DAILY_SELL_QUOTA_EXCEEDED');
+    }
     const state = this.normalizeDailyState(pool);
     const quote = makerBuy
       ? this.calculateTiered(
@@ -513,6 +538,13 @@ export class BuybackService {
       if (!account) throw new NotFoundException('ACCOUNT_NOT_FOUND');
       if (BigInt(account.buybackSpaceBalance) < space)
         throw new ConflictException('INSUFFICIENT_BUYBACK_SPACE');
+      const sellQuota = await this.getDailySellQuota(
+        manager,
+        accountId,
+        BigInt(pool.availableUsdt),
+      );
+      if (space > sellQuota.remainingSellQuota)
+        throw new ConflictException('BUYBACK_DAILY_SELL_QUOTA_EXCEEDED');
       const quote = this.calculateTiered(
         space,
         BigInt(pool.dailySellSpace),
@@ -824,6 +856,59 @@ export class BuybackService {
       month: '2-digit',
       day: '2-digit',
     }).format(new Date());
+  }
+
+  private async getDailySellQuota(
+    manager: EntityManager,
+    accountId: number,
+    availableUsdt: bigint,
+  ) {
+    const dayStart = Math.floor(
+      new Date(`${this.shanghaiDate()}T00:00:00+08:00`).getTime() / 1000,
+    );
+    const [result] = await manager.query<
+      {
+        activeMinerPrincipal: string;
+        userDailySoldSpace: string;
+      }[]
+    >(
+      `
+      SELECT
+        COALESCE((
+          SELECT SUM(miner.price)
+          FROM account_miner account_miner
+          JOIN miner miner
+            ON miner.id = account_miner.miner_id
+          WHERE account_miner.account_id = $1
+            AND account_miner.produced_reward < account_miner.expected_reward
+        ), 0)::text AS "activeMinerPrincipal",
+        COALESCE((
+          SELECT SUM(trade.space_amount)
+          FROM buyback_trade trade
+          WHERE trade.account_id = $1
+            AND trade.type = $2
+            AND trade.created_at >= $3
+            AND trade.created_at < $4
+        ), 0)::text AS "userDailySoldSpace"
+      `,
+      [accountId, BuybackTradeType.UserSell, dayStart, dayStart + 24 * 60 * 60],
+    );
+    const activeMinerPrincipal = BigInt(result?.activeMinerPrincipal ?? '0');
+    const userDailySoldSpace = BigInt(result?.userDailySoldSpace ?? '0');
+    const sellQuotaRateBp = calculateSellQuotaRateBp(availableUsdt);
+    const dailySellQuota = (activeMinerPrincipal * sellQuotaRateBp) / 10_000n;
+    const remainingSellQuota =
+      dailySellQuota > userDailySoldSpace
+        ? dailySellQuota - userDailySoldSpace
+        : 0n;
+
+    return {
+      activeMinerPrincipal,
+      sellQuotaRateBp,
+      dailySellQuota,
+      userDailySoldSpace,
+      remainingSellQuota,
+    };
   }
 
   private getStepPrice(

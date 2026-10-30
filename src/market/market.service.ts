@@ -9,7 +9,10 @@ import {
 import { requiredEnv } from 'src/common/env.util';
 import type Redis from 'ioredis';
 import { DataSource } from 'typeorm';
-import { OpenOrdersQueryDto } from './dto/open-orders-query.dto';
+import {
+  MarketOrderSide,
+  OpenOrdersQueryDto,
+} from './dto/open-orders-query.dto';
 import {
   MARKET_REDIS,
   MARKET_TRADE_VOLUME_ADJUSTMENT_REDIS_KEY,
@@ -65,10 +68,7 @@ export class MarketService implements OnModuleDestroy {
     @Inject(MARKET_REDIS) private readonly redis: Redis,
   ) {}
 
-  async getOpenOrders(
-    accountId: number,
-    query: OpenOrdersQueryDto,
-  ) {
+  async getOpenOrders(accountId: number, query: OpenOrdersQueryDto) {
     const accountRows = await this.dataSource.query<
       { address: string; isMarketMaker: boolean }[]
     >(
@@ -86,7 +86,7 @@ export class MarketService implements OnModuleDestroy {
       throw new NotFoundException('ACCOUNT_NOT_FOUND');
     }
 
-    if (query.side === 'sell' && account.isMarketMaker) {
+    if (query.side === MarketOrderSide.Sell && account.isMarketMaker) {
       const params = new URLSearchParams({
         side: query.side,
         page: String(query.page),
@@ -97,18 +97,39 @@ export class MarketService implements OnModuleDestroy {
       );
     }
 
-    const subordinateRows = await this.dataSource.query<{ address: string }[]>(
+    const includeSuperiorChain = query.side === MarketOrderSide.Buy;
+    const relatedRows = await this.dataSource.query<{ address: string }[]>(
       `
-      SELECT lower(subordinate.address) AS address
-      FROM account_relation relation
-      JOIN account subordinate
-        ON subordinate.id = relation.subordinate_id
-      WHERE relation.superior_id = $1
+      SELECT lower(related_account.address) AS address
+      FROM (
+        SELECT relation.subordinate_id AS account_id
+        FROM account_relation relation
+        WHERE relation.superior_id = $1
+        ${
+          includeSuperiorChain
+            ? `
+        UNION
+        SELECT relation.superior_id AS account_id
+        FROM account_relation relation
+        WHERE relation.subordinate_id = $1
+
+        UNION
+        SELECT maker.id AS account_id
+        FROM account maker
+        WHERE maker.is_market_maker = true
+        `
+            : ''
+        }
+      ) related
+      JOIN account related_account
+        ON related_account.id = related.account_id
       `,
       [accountId],
     );
 
-    const makers = [account.address, ...subordinateRows.map((row) => row.address)];
+    const makers = Array.from(
+      new Set([account.address, ...relatedRows.map((row) => row.address)]),
+    );
 
     if (makers.length > 50_000) {
       throw new PayloadTooLargeException('TEAM_ADDRESS_LIMIT_EXCEEDED');
@@ -139,7 +160,8 @@ export class MarketService implements OnModuleDestroy {
 
     let payload: MarketIndexerResponse<MarketOrderPage>;
     try {
-      payload = (await response.json()) as MarketIndexerResponse<MarketOrderPage>;
+      payload =
+        (await response.json()) as MarketIndexerResponse<MarketOrderPage>;
     } catch {
       throw new BadGatewayException('MARKET_INDEXER_INVALID_RESPONSE');
     }
