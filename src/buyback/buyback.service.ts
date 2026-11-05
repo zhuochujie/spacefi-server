@@ -11,7 +11,6 @@ import { randomUUID } from 'crypto';
 import {
   DataSource,
   EntityManager,
-  In,
   LessThanOrEqual,
   Raw,
   Repository,
@@ -27,6 +26,7 @@ import {
   BuybackSignatureStatus,
   BuybackToken,
   BuybackTradeType,
+  BuybackPoolTransferType,
 } from './buyback.enums';
 import { BuybackBalanceLog } from './entities/buyback-balance-log.entity';
 import { BuybackPoolState } from './entities/buyback-pool-state.entity';
@@ -34,8 +34,14 @@ import { BuybackSignature } from './entities/buyback-signature.entity';
 import { BuybackTrade } from './entities/buyback-trade.entity';
 import { keccak256, stringToBytes } from 'viem';
 import { calculateSellQuotaRateBp } from './buyback-sell-quota.util';
+import {
+  calculateMakerBuyQuote,
+  calculateUserSellQuote,
+  getMakerBuyPrice,
+  getUserSellPrice,
+} from './buyback-pricing.util';
 
-const WEI = 10n ** 18n;
+type BuybackConfig = Awaited<ReturnType<ConfigService['getBuybackConfig']>>;
 
 @Injectable()
 export class BuybackService {
@@ -64,31 +70,31 @@ export class BuybackService {
     ]);
     if (!account || !pool) throw new NotFoundException('ACCOUNT_NOT_FOUND');
     const state = this.normalizeDailyState(pool);
-    const sellPrice = this.getStepPrice(
-      config.sellDefaultPrice,
+    const sellPrice = getUserSellPrice(
       state.dailySellSpace,
-      config.sellStepAmount,
-      config.sellStepDecrease,
-      config.sellMinPrice,
-      false,
+      this.getUserSellPricingConfig(config),
     );
-    const makerPrice = this.getStepPrice(
-      config.makerDefaultPrice,
+    const makerPrice = getMakerBuyPrice(
       state.dailyMakerBuySpace,
-      config.makerStepAmount,
-      config.makerStepIncrease,
-      config.makerMaxPrice,
-      true,
+      this.getMakerBuyPricingConfig(config),
     );
     const sellQuota = await this.getDailySellQuota(
       this.dataSource.manager,
       accountId,
       BigInt(pool.availableUsdt),
     );
-    const maxSellSpace =
+    const userMaxSellSpace =
       BigInt(account.buybackSpaceBalance) < sellQuota.remainingSellQuota
         ? BigInt(account.buybackSpaceBalance)
         : sellQuota.remainingSellQuota;
+    const globalRemainingSellSpace =
+      state.dailySellSpace < config.sellDailyMaxAmount
+        ? config.sellDailyMaxAmount - state.dailySellSpace
+        : 0n;
+    const maxSellSpace =
+      userMaxSellSpace < globalRemainingSellSpace
+        ? userMaxSellSpace
+        : globalRemainingSellSpace;
     return {
       enabled: config.enabled,
       isMarketMaker: account.isMarketMaker,
@@ -109,6 +115,8 @@ export class BuybackService {
       userDailySoldSpace: sellQuota.userDailySoldSpace.toString(),
       remainingSellQuota: sellQuota.remainingSellQuota.toString(),
       maxSellSpace: maxSellSpace.toString(),
+      dailyGlobalSellLimit: config.sellDailyMaxAmount.toString(),
+      globalRemainingSellSpace: globalRemainingSellSpace.toString(),
     };
   }
 
@@ -126,45 +134,35 @@ export class BuybackService {
       ],
     );
     if (!pool) throw new NotFoundException('BUYBACK_POOL_NOT_FOUND');
-    const receiver = await this.dataSource.getRepository(Account).findOne({
-      where: {
-        address: Raw((alias) => `lower(${alias}) = :receiverAddress`, {
-          receiverAddress: config.feeReceiverAddress,
-        }),
-      },
-    });
     const state = this.normalizeDailyState(pool);
     return {
       enabled: config.enabled,
       availableSpace: pool.availableSpace,
       availableUsdt: pool.availableUsdt,
+      pendingBurnSpace: pool.pendingBurnSpace,
+      pendingFeeUsdt: pool.pendingFeeUsdt,
+      totalBurnedSpace: pool.totalBurnedSpace,
       dailySellSpace: state.dailySellSpace.toString(),
       dailyMakerBuySpace: state.dailyMakerBuySpace.toString(),
       businessDate: pool.businessDate,
       updatedAt: pool.updatedAt,
-      sellPrice: this.getStepPrice(
-        config.sellDefaultPrice,
-        state.dailySellSpace,
-        config.sellStepAmount,
-        config.sellStepDecrease,
-        config.sellMinPrice,
-        false,
+      dailyGlobalSellLimit: config.sellDailyMaxAmount.toString(),
+      globalRemainingSellSpace: (state.dailySellSpace <
+      config.sellDailyMaxAmount
+        ? config.sellDailyMaxAmount - state.dailySellSpace
+        : 0n
       ).toString(),
-      makerPrice: this.getStepPrice(
-        config.makerDefaultPrice,
+      sellPrice: getUserSellPrice(
+        state.dailySellSpace,
+        this.getUserSellPricingConfig(config),
+      ).toString(),
+      makerPrice: getMakerBuyPrice(
         state.dailyMakerBuySpace,
-        config.makerStepAmount,
-        config.makerStepIncrease,
-        config.makerMaxPrice,
-        true,
+        this.getMakerBuyPricingConfig(config),
       ).toString(),
       sellFeeBp: config.sellFeeBp.toString(),
       makerFeeSubsidyEnabled: config.makerFeeSubsidyEnabled,
       makerFeeSubsidyBp: config.makerFeeSubsidyBp.toString(),
-      receiverAddress: config.feeReceiverAddress,
-      receiverAccountId: receiver?.id ?? null,
-      receiverSpaceBalance: receiver?.buybackSpaceBalance ?? '0',
-      receiverUsdtBalance: receiver?.buybackUsdtBalance ?? '0',
       tradeCount,
       pendingSignatureCount,
     };
@@ -184,6 +182,8 @@ export class BuybackService {
           feeAmount: string;
           subsidyAmount: string;
           receiverAmount: string;
+          burnAmount: string;
+          poolSpaceAmount: string;
           settledUsdtAmount: string;
           createdAt: number;
         }>
@@ -200,6 +200,8 @@ export class BuybackService {
           trade.fee_amount::text AS "feeAmount",
           trade.subsidy_amount::text AS "subsidyAmount",
           trade.receiver_amount::text AS "receiverAmount",
+          trade.burn_amount::text AS "burnAmount",
+          trade.pool_space_amount::text AS "poolSpaceAmount",
           CASE
             WHEN trade.type = 'user_sell' THEN (trade.usdt_amount - trade.fee_amount)::text
             ELSE (trade.usdt_amount - trade.receiver_amount)::text
@@ -255,6 +257,70 @@ export class BuybackService {
         addedAmount: value.toString(),
         availableUsdt: pool.availableUsdt,
         updatedAt: pool.updatedAt,
+      };
+    });
+  }
+
+  async transferPoolAsset(
+    type: BuybackPoolTransferType,
+    toAddress: string,
+    amount: string,
+  ) {
+    const value = this.positiveAmount(amount);
+    return this.dataSource.transaction(async (manager) => {
+      const pool = await this.lockPool(manager);
+      const account = await manager.getRepository(Account).findOne({
+        where: {
+          address: Raw((alias) => `lower(${alias}) = :toAddress`, {
+            toAddress: toAddress.toLowerCase(),
+          }),
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!account) throw new NotFoundException('ACCOUNT_NOT_FOUND');
+
+      const isBurnTransfer = type === BuybackPoolTransferType.BurnSpace;
+      const poolField = isBurnTransfer
+        ? ('pendingBurnSpace' as const)
+        : ('pendingFeeUsdt' as const);
+      if (BigInt(pool[poolField]) < value)
+        throw new ConflictException('INSUFFICIENT_BUYBACK_POOL_COUNTER');
+
+      const token = isBurnTransfer ? BuybackToken.Space : BuybackToken.Usdt;
+      const accountField = isBurnTransfer
+        ? ('buybackSpaceBalance' as const)
+        : ('buybackUsdtBalance' as const);
+      const balanceBefore = account[accountField];
+      pool[poolField] = (BigInt(pool[poolField]) - value).toString();
+      if (isBurnTransfer) {
+        pool.totalBurnedSpace = (
+          BigInt(pool.totalBurnedSpace) + value
+        ).toString();
+      }
+      account[accountField] = (
+        BigInt(account[accountField]) + value
+      ).toString();
+      pool.updatedAt = Math.floor(Date.now() / 1000);
+      await manager.save([pool, account]);
+      await this.saveLog(
+        manager.getRepository(BuybackBalanceLog),
+        account.id,
+        isBurnTransfer
+          ? BuybackBalanceLogType.BurnTransferIn
+          : BuybackBalanceLogType.FeeTransferIn,
+        token,
+        value,
+        balanceBefore,
+        account[accountField],
+      );
+      return {
+        type,
+        toAddress: account.address,
+        amount: value.toString(),
+        pendingBurnSpace: pool.pendingBurnSpace,
+        totalBurnedSpace: pool.totalBurnedSpace,
+        pendingFeeUsdt: pool.pendingFeeUsdt,
+        targetBalance: account[accountField],
       };
     });
   }
@@ -473,6 +539,7 @@ export class BuybackService {
     ]);
     if (!pool) throw new NotFoundException('BUYBACK_POOL_NOT_FOUND');
     if (!config.enabled) throw new ForbiddenException('BUYBACK_DISABLED');
+    const state = this.normalizeDailyState(pool);
     if (!makerBuy) {
       const sellQuota = await this.getDailySellQuota(
         this.dataSource.manager,
@@ -481,31 +548,24 @@ export class BuybackService {
       );
       if (space > sellQuota.remainingSellQuota)
         throw new ConflictException('BUYBACK_DAILY_SELL_QUOTA_EXCEEDED');
+      if (state.dailySellSpace + space > config.sellDailyMaxAmount)
+        throw new ConflictException('BUYBACK_DAILY_GLOBAL_LIMIT_EXCEEDED');
     }
-    const state = this.normalizeDailyState(pool);
     const quote = makerBuy
-      ? this.calculateTiered(
+      ? calculateMakerBuyQuote(
           space,
           state.dailyMakerBuySpace,
-          config.makerDefaultPrice,
-          config.makerStepAmount,
-          config.makerStepIncrease,
-          config.makerMaxPrice,
-          true,
+          this.getMakerBuyPricingConfig(config),
         )
-      : this.calculateTiered(
+      : calculateUserSellQuote(
           space,
           state.dailySellSpace,
-          config.sellDefaultPrice,
-          config.sellStepAmount,
-          config.sellStepDecrease,
-          config.sellMinPrice,
-          false,
+          this.getUserSellPricingConfig(config),
         );
     const feeAmount = makerBuy
       ? 0n
-      : (quote.total * config.sellFeeBp) / 10_000n;
-    const receivedUsdt = quote.total - feeAmount;
+      : (quote.totalUsdt * config.sellFeeBp) / 10_000n;
+    const receivedUsdt = quote.totalUsdt - feeAmount;
     const subsidySpace =
       makerBuy && config.makerFeeSubsidyEnabled
         ? (space * config.makerFeeSubsidyBp) / 10_000n
@@ -516,10 +576,12 @@ export class BuybackService {
       spaceAmount: space.toString(),
       subsidySpaceAmount: subsidySpace.toString(),
       spaceReceivedAmount: (space + subsidySpace).toString(),
-      grossUsdtAmount: quote.total.toString(),
+      grossUsdtAmount: quote.totalUsdt.toString(),
       feeAmount: feeAmount.toString(),
       usdtAmount: receivedUsdt.toString(),
-      averagePrice: quote.average.toString(),
+      averagePrice: quote.averagePrice.toString(),
+      burnSpaceAmount: makerBuy ? '0' : quote.burnAmount.toString(),
+      poolSpaceAmount: makerBuy ? '0' : quote.poolSpaceAmount.toString(),
     };
   }
 
@@ -545,19 +607,17 @@ export class BuybackService {
       );
       if (space > sellQuota.remainingSellQuota)
         throw new ConflictException('BUYBACK_DAILY_SELL_QUOTA_EXCEEDED');
-      const quote = this.calculateTiered(
+      if (BigInt(pool.dailySellSpace) + space > config.sellDailyMaxAmount)
+        throw new ConflictException('BUYBACK_DAILY_GLOBAL_LIMIT_EXCEEDED');
+      const quote = calculateUserSellQuote(
         space,
         BigInt(pool.dailySellSpace),
-        config.sellDefaultPrice,
-        config.sellStepAmount,
-        config.sellStepDecrease,
-        config.sellMinPrice,
-        false,
+        this.getUserSellPricingConfig(config),
       );
-      if (quote.total <= 0n)
+      if (quote.totalUsdt <= 0n)
         throw new BadRequestException('BUYBACK_AMOUNT_TOO_SMALL');
-      const feeAmount = (quote.total * config.sellFeeBp) / 10_000n;
-      const receivedUsdt = quote.total - feeAmount;
+      const feeAmount = (quote.totalUsdt * config.sellFeeBp) / 10_000n;
+      const receivedUsdt = quote.totalUsdt - feeAmount;
       if (receivedUsdt <= 0n)
         throw new BadRequestException('BUYBACK_AMOUNT_TOO_SMALL');
       if (receivedUsdt < minimumUsdt)
@@ -570,7 +630,12 @@ export class BuybackService {
       account.buybackUsdtBalance = (
         BigInt(usdtBefore) + receivedUsdt
       ).toString();
-      pool.availableSpace = (BigInt(pool.availableSpace) + space).toString();
+      pool.availableSpace = (
+        BigInt(pool.availableSpace) + quote.poolSpaceAmount
+      ).toString();
+      pool.pendingBurnSpace = (
+        BigInt(pool.pendingBurnSpace) + quote.burnAmount
+      ).toString();
       pool.availableUsdt = (
         BigInt(pool.availableUsdt) - receivedUsdt
       ).toString();
@@ -599,11 +664,13 @@ export class BuybackService {
         accountId,
         type: BuybackTradeType.UserSell,
         spaceAmount: space.toString(),
-        price: quote.average.toString(),
-        usdtAmount: quote.total.toString(),
+        price: quote.averagePrice.toString(),
+        usdtAmount: quote.totalUsdt.toString(),
         feeAmount: feeAmount.toString(),
         subsidyAmount: '0',
         receiverAmount: '0',
+        burnAmount: quote.burnAmount.toString(),
+        poolSpaceAmount: quote.poolSpaceAmount.toString(),
         createdAt: pool.updatedAt,
       });
       return trade;
@@ -615,32 +682,14 @@ export class BuybackService {
     const maximumUsdt = this.positiveAmount(limitUsdt);
     const config = await this.configService.getBuybackConfig();
     if (!config.enabled) throw new ForbiddenException('BUYBACK_DISABLED');
-    const receiverAccount = await this.dataSource
-      .getRepository(Account)
-      .findOne({
-        where: {
-          address: Raw((alias) => `lower(${alias}) = :receiverAddress`, {
-            receiverAddress: config.feeReceiverAddress,
-          }),
-        },
-        select: { id: true },
-      });
-    if (!receiverAccount)
-      throw new NotFoundException('BUYBACK_FEE_RECEIVER_NOT_FOUND');
     return this.dataSource.transaction(async (manager) => {
       const pool = await this.lockPool(manager);
       this.resetDaily(pool);
-      const ids = [...new Set([accountId, receiverAccount.id])].sort(
-        (a, b) => a - b,
-      );
-      const accounts = await manager.getRepository(Account).find({
-        where: { id: In(ids) },
-        order: { id: 'ASC' },
+      const maker = await manager.getRepository(Account).findOne({
+        where: { id: accountId },
         lock: { mode: 'pessimistic_write' },
       });
-      const maker = accounts.find((item) => item.id === accountId);
-      const receiver = accounts.find((item) => item.id === receiverAccount.id);
-      if (!maker || !receiver) throw new NotFoundException('ACCOUNT_NOT_FOUND');
+      if (!maker) throw new NotFoundException('ACCOUNT_NOT_FOUND');
       if (!maker.isMarketMaker)
         throw new ForbiddenException('MARKET_MAKER_REQUIRED');
       const subsidySpace = config.makerFeeSubsidyEnabled
@@ -649,51 +698,46 @@ export class BuybackService {
       const receivedSpace = space + subsidySpace;
       if (BigInt(pool.availableSpace) < receivedSpace)
         throw new ConflictException('INSUFFICIENT_BUYBACK_POOL_SPACE');
-      const quote = this.calculateTiered(
+      const quote = calculateMakerBuyQuote(
         space,
         BigInt(pool.dailyMakerBuySpace),
-        config.makerDefaultPrice,
-        config.makerStepAmount,
-        config.makerStepIncrease,
-        config.makerMaxPrice,
-        true,
+        this.getMakerBuyPricingConfig(config),
       );
-      if (quote.total <= 0n)
+      if (quote.totalUsdt <= 0n)
         throw new BadRequestException('BUYBACK_AMOUNT_TOO_SMALL');
-      if (quote.total > maximumUsdt)
+      if (quote.totalUsdt > maximumUsdt)
         throw new ConflictException('BUYBACK_PRICE_CHANGED');
-      if (BigInt(maker.buybackUsdtBalance) < quote.total)
+      if (BigInt(maker.buybackUsdtBalance) < quote.totalUsdt)
         throw new ConflictException('INSUFFICIENT_BUYBACK_USDT');
-      const receiverAmount = quote.total / 6n;
-      const poolAmount = quote.total - receiverAmount;
+      const receiverAmount = quote.totalUsdt / 6n;
+      const poolAmount = quote.totalUsdt - receiverAmount;
       const makerUsdtBefore = maker.buybackUsdtBalance;
       const makerSpaceBefore = maker.buybackSpaceBalance;
       const makerUsdtAfterPayment = (
-        BigInt(makerUsdtBefore) - quote.total
+        BigInt(makerUsdtBefore) - quote.totalUsdt
       ).toString();
       maker.buybackUsdtBalance = makerUsdtAfterPayment;
       maker.buybackSpaceBalance = (
         BigInt(makerSpaceBefore) + receivedSpace
       ).toString();
-      const receiverBefore = receiver.buybackUsdtBalance;
-      receiver.buybackUsdtBalance = (
-        BigInt(receiverBefore) + receiverAmount
-      ).toString();
       pool.availableSpace = (
         BigInt(pool.availableSpace) - receivedSpace
       ).toString();
       pool.availableUsdt = (BigInt(pool.availableUsdt) + poolAmount).toString();
+      pool.pendingFeeUsdt = (
+        BigInt(pool.pendingFeeUsdt) + receiverAmount
+      ).toString();
       pool.dailyMakerBuySpace = (
         BigInt(pool.dailyMakerBuySpace) + space
       ).toString();
       pool.updatedAt = Math.floor(Date.now() / 1000);
-      await manager.save([...accounts, pool]);
+      await manager.save([maker, pool]);
       await this.saveLog(
         manager.getRepository(BuybackBalanceLog),
         maker.id,
         BuybackBalanceLogType.Trade,
         BuybackToken.Usdt,
-        -quote.total,
+        -quote.totalUsdt,
         makerUsdtBefore,
         makerUsdtAfterPayment,
       );
@@ -706,25 +750,17 @@ export class BuybackService {
         makerSpaceBefore,
         maker.buybackSpaceBalance,
       );
-      if (receiverAmount > 0n)
-        await this.saveLog(
-          manager.getRepository(BuybackBalanceLog),
-          receiver.id,
-          BuybackBalanceLogType.FeeIncome,
-          BuybackToken.Usdt,
-          receiverAmount,
-          receiverBefore,
-          receiver.buybackUsdtBalance,
-        );
       return manager.getRepository(BuybackTrade).save({
         accountId,
         type: BuybackTradeType.MakerBuy,
         spaceAmount: space.toString(),
-        price: quote.average.toString(),
-        usdtAmount: quote.total.toString(),
+        price: quote.averagePrice.toString(),
+        usdtAmount: quote.totalUsdt.toString(),
         feeAmount: '0',
         subsidyAmount: subsidySpace.toString(),
         receiverAmount: receiverAmount.toString(),
+        burnAmount: '0',
+        poolSpaceAmount: '0',
         createdAt: pool.updatedAt,
       });
     });
@@ -911,51 +947,31 @@ export class BuybackService {
     };
   }
 
-  private getStepPrice(
-    base: bigint,
-    volume: bigint,
-    stepAmount: bigint,
-    delta: bigint,
-    bound: bigint,
-    increase: boolean,
-  ) {
-    const change = (volume / stepAmount) * delta;
-    return increase
-      ? base + change > bound
-        ? bound
-        : base + change
-      : base > change + bound
-        ? base - change
-        : bound;
+  private getUserSellPricingConfig(config: BuybackConfig) {
+    return {
+      defaultPrice: config.sellDefaultPrice,
+      tier1EndAmount: config.sellTier1EndAmount,
+      tier1StepAmount: config.sellTier1StepAmount,
+      tier1StepDecrease: config.sellTier1StepDecrease,
+      tier2EndAmount: config.sellTier2EndAmount,
+      tier2StepAmount: config.sellTier2StepAmount,
+      tier2StepDecrease: config.sellTier2StepDecrease,
+      fixedPrice: config.sellFixedPrice,
+      dailyMaxAmount: config.sellDailyMaxAmount,
+      tier1BurnBp: config.sellTier1BurnBp,
+      tier2BurnBp: config.sellTier2BurnBp,
+      tier3BurnBp: config.sellTier3BurnBp,
+    };
   }
 
-  private calculateTiered(
-    amount: bigint,
-    volume: bigint,
-    base: bigint,
-    stepAmount: bigint,
-    delta: bigint,
-    bound: bigint,
-    increase: boolean,
-  ) {
-    let remaining = amount;
-    let cursor = volume;
-    let total = 0n;
-    let steps = 0;
-    while (remaining > 0n) {
-      if (++steps > 10_000)
-        throw new BadRequestException('BUYBACK_AMOUNT_TOO_LARGE');
-      const inStep = cursor % stepAmount;
-      const chunk =
-        remaining < stepAmount - inStep ? remaining : stepAmount - inStep;
-      total +=
-        (chunk *
-          this.getStepPrice(base, cursor, stepAmount, delta, bound, increase)) /
-        WEI;
-      remaining -= chunk;
-      cursor += chunk;
-    }
-    return { total, average: (total * WEI) / amount };
+  private getMakerBuyPricingConfig(config: BuybackConfig) {
+    return {
+      defaultPrice: config.makerDefaultPrice,
+      firstStepAmount: config.makerStepAmount,
+      firstStepIncrease: config.makerFirstStepIncrease,
+      stepAmount: config.makerStepAmount,
+      stepIncrease: config.makerStepIncrease,
+    };
   }
 
   private async saveLog(

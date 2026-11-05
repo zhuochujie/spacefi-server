@@ -15,13 +15,16 @@ DO $$ BEGIN
   CREATE TYPE buyback_trade_type_enum AS ENUM ('user_sell', 'maker_buy');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
-  CREATE TYPE buyback_balance_log_type_enum AS ENUM ('deposit', 'trade', 'withdraw', 'withdraw_refund', 'fee_income');
+  CREATE TYPE buyback_balance_log_type_enum AS ENUM ('deposit', 'trade', 'withdraw', 'withdraw_refund', 'fee_income', 'burn_transfer_in', 'fee_transfer_in');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS buyback_pool_state (
   id INTEGER PRIMARY KEY DEFAULT 1,
   available_space NUMERIC(28,0) NOT NULL DEFAULT 0,
   available_usdt NUMERIC(28,0) NOT NULL DEFAULT 0,
+  pending_burn_space NUMERIC(28,0) NOT NULL DEFAULT 0,
+  pending_fee_usdt NUMERIC(28,0) NOT NULL DEFAULT 0,
+  total_burned_space NUMERIC(28,0) NOT NULL DEFAULT 0,
   daily_sell_space NUMERIC(28,0) NOT NULL DEFAULT 0,
   daily_maker_buy_space NUMERIC(28,0) NOT NULL DEFAULT 0,
   business_date VARCHAR(10) NOT NULL DEFAULT '',
@@ -55,6 +58,8 @@ CREATE TABLE IF NOT EXISTS buyback_trade (
   fee_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
   subsidy_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
   receiver_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
+  burn_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
+  pool_space_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 

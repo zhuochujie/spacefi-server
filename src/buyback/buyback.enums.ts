@@ -25,4 +25,11 @@ export enum BuybackBalanceLogType {
   Withdraw = 'withdraw',
   WithdrawRefund = 'withdraw_refund',
   FeeIncome = 'fee_income',
+  BurnTransferIn = 'burn_transfer_in',
+  FeeTransferIn = 'fee_transfer_in',
+}
+
+export enum BuybackPoolTransferType {
+  BurnSpace = 'burn_space',
+  FeeUsdt = 'fee_usdt',
 }

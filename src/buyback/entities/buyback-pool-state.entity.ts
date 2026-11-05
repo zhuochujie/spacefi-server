@@ -12,6 +12,15 @@ export class BuybackPoolState {
   availableUsdt!: string;
 
   @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  pendingBurnSpace!: string;
+
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  pendingFeeUsdt!: string;
+
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  totalBurnedSpace!: string;
+
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
   dailySellSpace!: string;
 
   @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })

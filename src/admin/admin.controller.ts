@@ -43,6 +43,7 @@ import { AdminUpdateMarketVolumeAdjustmentDto } from './dto/admin-update-market-
 import { AdminUpdateMarketMakerWhitelistDto } from './dto/admin-update-market-maker-whitelist.dto';
 import { BuybackService } from 'src/buyback/buyback.service';
 import { BuybackAmountDto } from 'src/buyback/dto/buyback-amount.dto';
+import { AdminBuybackPoolTransferDto } from 'src/buyback/dto/admin-buyback-pool-transfer.dto';
 
 @Admin()
 @Controller('admin')
@@ -81,6 +82,16 @@ export class AdminController {
   @AdminAction('增加回购池USDT额度')
   addBuybackPoolUsdt(@Body() dto: BuybackAmountDto) {
     return this.buybackService.addPoolUsdt(dto.amount);
+  }
+
+  @Post('buyback/pool-transfer')
+  @AdminAction('划转回购池待处理资产')
+  transferBuybackPoolAsset(@Body() dto: AdminBuybackPoolTransferDto) {
+    return this.buybackService.transferPoolAsset(
+      dto.type,
+      dto.toAddress,
+      dto.amount,
+    );
   }
 
   @Get('users')

@@ -8,7 +8,7 @@ import {
   DividendRuleCategory,
 } from './entities/dividend-rule.entity';
 import { AccountBalanceLogToken } from 'src/account/entities/account-balance-log.entity';
-import { isAddress, zeroAddress } from 'viem';
+import { isAddress } from 'viem';
 
 @Injectable()
 export class ConfigService {
@@ -37,10 +37,24 @@ export class ConfigService {
   static readonly BUYBACK_ENABLED_KEY = 'BUYBACK_ENABLED';
   static readonly BUYBACK_SELL_DEFAULT_PRICE_KEY =
     'BUYBACK_SELL_DEFAULT_PRICE_WEI';
-  static readonly BUYBACK_SELL_STEP_AMOUNT_KEY = 'BUYBACK_SELL_STEP_AMOUNT_WEI';
-  static readonly BUYBACK_SELL_STEP_DECREASE_KEY =
-    'BUYBACK_SELL_STEP_DECREASE_WEI';
-  static readonly BUYBACK_SELL_MIN_PRICE_KEY = 'BUYBACK_SELL_MIN_PRICE_WEI';
+  static readonly BUYBACK_SELL_TIER1_STEP_AMOUNT_KEY =
+    'BUYBACK_SELL_TIER1_STEP_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_TIER1_STEP_DECREASE_KEY =
+    'BUYBACK_SELL_TIER1_STEP_DECREASE_WEI';
+  static readonly BUYBACK_SELL_TIER1_END_AMOUNT_KEY =
+    'BUYBACK_SELL_TIER1_END_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_TIER2_END_AMOUNT_KEY =
+    'BUYBACK_SELL_TIER2_END_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_TIER2_STEP_AMOUNT_KEY =
+    'BUYBACK_SELL_TIER2_STEP_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_TIER2_STEP_DECREASE_KEY =
+    'BUYBACK_SELL_TIER2_STEP_DECREASE_WEI';
+  static readonly BUYBACK_SELL_DAILY_MAX_AMOUNT_KEY =
+    'BUYBACK_SELL_DAILY_MAX_AMOUNT_WEI';
+  static readonly BUYBACK_SELL_TIER1_BURN_BP_KEY = 'BUYBACK_SELL_TIER1_BURN_BP';
+  static readonly BUYBACK_SELL_TIER2_BURN_BP_KEY = 'BUYBACK_SELL_TIER2_BURN_BP';
+  static readonly BUYBACK_SELL_TIER3_BURN_BP_KEY = 'BUYBACK_SELL_TIER3_BURN_BP';
+  static readonly BUYBACK_SELL_FIXED_PRICE_KEY = 'BUYBACK_SELL_FIXED_PRICE_WEI';
   static readonly BUYBACK_SELL_FEE_BP_KEY = 'BUYBACK_SELL_FEE_BP';
   static readonly BUYBACK_MAKER_DEFAULT_PRICE_KEY =
     'BUYBACK_MAKER_DEFAULT_PRICE_WEI';
@@ -48,13 +62,12 @@ export class ConfigService {
     'BUYBACK_MAKER_STEP_AMOUNT_WEI';
   static readonly BUYBACK_MAKER_STEP_INCREASE_KEY =
     'BUYBACK_MAKER_STEP_INCREASE_WEI';
-  static readonly BUYBACK_MAKER_MAX_PRICE_KEY = 'BUYBACK_MAKER_MAX_PRICE_WEI';
+  static readonly BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY =
+    'BUYBACK_MAKER_FIRST_STEP_INCREASE_WEI';
   static readonly BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY =
     'BUYBACK_MAKER_FEE_SUBSIDY_ENABLED';
   static readonly BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY =
     'BUYBACK_MAKER_FEE_SUBSIDY_BP';
-  static readonly BUYBACK_FEE_RECEIVER_ADDRESS_KEY =
-    'BUYBACK_FEE_RECEIVER_ADDRESS';
 
   constructor(
     @InjectRepository(Config)
@@ -223,17 +236,24 @@ export class ConfigService {
     const keys = [
       ConfigService.BUYBACK_ENABLED_KEY,
       ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
-      ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
-      ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
-      ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+      ConfigService.BUYBACK_SELL_TIER1_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_TIER1_STEP_DECREASE_KEY,
+      ConfigService.BUYBACK_SELL_TIER1_END_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_TIER2_END_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_TIER2_STEP_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_TIER2_STEP_DECREASE_KEY,
+      ConfigService.BUYBACK_SELL_DAILY_MAX_AMOUNT_KEY,
+      ConfigService.BUYBACK_SELL_TIER1_BURN_BP_KEY,
+      ConfigService.BUYBACK_SELL_TIER2_BURN_BP_KEY,
+      ConfigService.BUYBACK_SELL_TIER3_BURN_BP_KEY,
+      ConfigService.BUYBACK_SELL_FIXED_PRICE_KEY,
       ConfigService.BUYBACK_SELL_FEE_BP_KEY,
       ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
       ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
       ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
-      ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY,
       ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY,
       ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
-      ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
     ];
     const configMap = await this.getConfigMap(keys);
 
@@ -246,17 +266,49 @@ export class ConfigService {
         ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY,
         configMap.get(ConfigService.BUYBACK_SELL_DEFAULT_PRICE_KEY),
       ),
-      sellStepAmount: this.parsePositiveBigInt(
-        ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
-        configMap.get(ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY),
+      sellTier1StepAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER1_STEP_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER1_STEP_AMOUNT_KEY),
       ),
-      sellStepDecrease: this.parsePositiveBigInt(
-        ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
-        configMap.get(ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY),
+      sellTier1StepDecrease: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER1_STEP_DECREASE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER1_STEP_DECREASE_KEY),
       ),
-      sellMinPrice: this.parsePositiveBigInt(
-        ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
-        configMap.get(ConfigService.BUYBACK_SELL_MIN_PRICE_KEY),
+      sellTier1EndAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER1_END_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER1_END_AMOUNT_KEY),
+      ),
+      sellTier2EndAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER2_END_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER2_END_AMOUNT_KEY),
+      ),
+      sellTier2StepAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER2_STEP_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER2_STEP_AMOUNT_KEY),
+      ),
+      sellTier2StepDecrease: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_TIER2_STEP_DECREASE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER2_STEP_DECREASE_KEY),
+      ),
+      sellDailyMaxAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_DAILY_MAX_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_DAILY_MAX_AMOUNT_KEY),
+      ),
+      sellTier1BurnBp: this.parseBp(
+        ConfigService.BUYBACK_SELL_TIER1_BURN_BP_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER1_BURN_BP_KEY),
+      ),
+      sellTier2BurnBp: this.parseBp(
+        ConfigService.BUYBACK_SELL_TIER2_BURN_BP_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER2_BURN_BP_KEY),
+      ),
+      sellTier3BurnBp: this.parseBp(
+        ConfigService.BUYBACK_SELL_TIER3_BURN_BP_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_TIER3_BURN_BP_KEY),
+      ),
+      sellFixedPrice: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_SELL_FIXED_PRICE_KEY,
+        configMap.get(ConfigService.BUYBACK_SELL_FIXED_PRICE_KEY),
       ),
       sellFeeBp: this.parseBp(
         ConfigService.BUYBACK_SELL_FEE_BP_KEY,
@@ -274,9 +326,9 @@ export class ConfigService {
         ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
         configMap.get(ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY),
       ),
-      makerMaxPrice: this.parsePositiveBigInt(
-        ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
-        configMap.get(ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY),
+      makerFirstStepIncrease: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY),
       ),
       makerFeeSubsidyEnabled: this.parseBooleanLike(
         ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_ENABLED_KEY,
@@ -286,15 +338,15 @@ export class ConfigService {
         ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
         configMap.get(ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY),
       ),
-      feeReceiverAddress: this.parseAddress(
-        ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
-        configMap.get(ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY),
-      ),
     };
     if (
-      result.sellMinPrice > result.sellDefaultPrice ||
-      result.makerDefaultPrice > result.makerMaxPrice ||
-      (result.enabled && result.feeReceiverAddress === zeroAddress)
+      result.sellFixedPrice > result.sellDefaultPrice ||
+      result.sellTier1EndAmount >= result.sellTier2EndAmount ||
+      result.sellTier2EndAmount >= result.sellDailyMaxAmount ||
+      result.sellTier1EndAmount % result.sellTier1StepAmount !== 0n ||
+      (result.sellTier2EndAmount - result.sellTier1EndAmount) %
+        result.sellTier2StepAmount !==
+        0n
     ) {
       throw new CustomException('INVALID_CONFIG_FORMAT', 500);
     }
@@ -446,21 +498,69 @@ export class ConfigService {
         isAdminEditable: true,
       },
       {
-        key: ConfigService.BUYBACK_SELL_STEP_AMOUNT_KEY,
-        value: '1000000000000000000000',
-        desc: '用户每日累计卖出达到该SPACE数量后价格下降一档；',
+        key: ConfigService.BUYBACK_SELL_TIER1_STEP_AMOUNT_KEY,
+        value: '500000000000000000000',
+        desc: '用户卖出第一阶段每档SPACE数量，默认500 SPACE；',
         isAdminEditable: true,
       },
       {
-        key: ConfigService.BUYBACK_SELL_STEP_DECREASE_KEY,
+        key: ConfigService.BUYBACK_SELL_TIER1_STEP_DECREASE_KEY,
         value: '10000000000000000',
         desc: '用户卖出价格每档下降数量，USDT wei；',
         isAdminEditable: true,
       },
       {
-        key: ConfigService.BUYBACK_SELL_MIN_PRICE_KEY,
+        key: ConfigService.BUYBACK_SELL_TIER1_END_AMOUNT_KEY,
+        value: '5000000000000000000000',
+        desc: '用户卖出第一阶段结束累计量，默认5000 SPACE；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER2_END_AMOUNT_KEY,
+        value: '10000000000000000000000',
+        desc: '用户卖出第二阶段结束累计量，默认10000 SPACE；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER2_STEP_AMOUNT_KEY,
+        value: '1000000000000000000000',
+        desc: '用户卖出第二阶段每档SPACE数量，默认1000 SPACE；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER2_STEP_DECREASE_KEY,
         value: '10000000000000000',
-        desc: '用户卖出最低价格，USDT wei；',
+        desc: '用户卖出第二阶段每档降价，默认0.01 USDT；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_DAILY_MAX_AMOUNT_KEY,
+        value: '30000000000000000000000',
+        desc: '全平台每日最大用户卖出数量，默认30000 SPACE；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER1_BURN_BP_KEY,
+        value: '2500',
+        desc: '用户卖出第一阶段待销毁比例，默认25%；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER2_BURN_BP_KEY,
+        value: '5000',
+        desc: '用户卖出第二阶段待销毁比例，默认50%；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_TIER3_BURN_BP_KEY,
+        value: '8000',
+        desc: '用户卖出固定价格阶段待销毁比例，默认80%；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_SELL_FIXED_PRICE_KEY,
+        value: '50000000000000000',
+        desc: '用户卖出固定价格，默认0.05 USDT；',
         isAdminEditable: true,
       },
       {
@@ -471,7 +571,7 @@ export class ConfigService {
       },
       {
         key: ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
-        value: '600000000000000000',
+        value: '500000000000000000',
         desc: '做市商买入SPACE每日默认价格，USDT wei；',
         isAdminEditable: true,
       },
@@ -483,14 +583,14 @@ export class ConfigService {
       },
       {
         key: ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
-        value: '1000000000000000000',
-        desc: '做市商买入价格每档上涨数量，USDT wei；',
+        value: '10000000000000000',
+        desc: '做市商买入首档后每档上涨数量，默认0.01 USDT；',
         isAdminEditable: true,
       },
       {
-        key: ConfigService.BUYBACK_MAKER_MAX_PRICE_KEY,
-        value: '10000000000000000000',
-        desc: '做市商买入最高价格，USDT wei；',
+        key: ConfigService.BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY,
+        value: '100000000000000000',
+        desc: '做市商累计买入达到首档后的首次涨价，默认0.1 USDT；',
         isAdminEditable: true,
       },
       {
@@ -503,12 +603,6 @@ export class ConfigService {
         key: ConfigService.BUYBACK_MAKER_FEE_SUBSIDY_BP_KEY,
         value: '1000',
         desc: '做市商购买额外SPACE补贴比例，单位BP，1000表示10%',
-        isAdminEditable: true,
-      },
-      {
-        key: ConfigService.BUYBACK_FEE_RECEIVER_ADDRESS_KEY,
-        value: '0x0000000000000000000000000000000000000000',
-        desc: '做市商购买USDT六分之一接收账户钱包地址；启用回购前必须配置',
         isAdminEditable: true,
       },
     ];

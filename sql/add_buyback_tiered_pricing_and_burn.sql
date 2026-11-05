@@ -1,0 +1,51 @@
+ALTER TYPE buyback_balance_log_type_enum ADD VALUE IF NOT EXISTS 'burn_transfer_in';
+ALTER TYPE buyback_balance_log_type_enum ADD VALUE IF NOT EXISTS 'fee_transfer_in';
+
+BEGIN;
+
+ALTER TABLE buyback_pool_state
+  ADD COLUMN IF NOT EXISTS pending_burn_space NUMERIC(28,0) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS pending_fee_usdt NUMERIC(28,0) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_burned_space NUMERIC(28,0) NOT NULL DEFAULT 0;
+
+ALTER TABLE buyback_trade
+  ADD COLUMN IF NOT EXISTS burn_amount NUMERIC(28,0) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS pool_space_amount NUMERIC(28,0) NOT NULL DEFAULT 0;
+
+UPDATE buyback_trade
+SET pool_space_amount = space_amount
+WHERE type = 'user_sell'
+  AND pool_space_amount = 0
+  AND burn_amount = 0;
+
+INSERT INTO config (key, value, "desc", is_admin_editable) VALUES
+  ('BUYBACK_SELL_DEFAULT_PRICE_WEI', '200000000000000000', '用户卖出SPACE每日默认价格，默认0.2 USDT；', true),
+  ('BUYBACK_SELL_TIER1_STEP_AMOUNT_WEI', '500000000000000000000', '用户卖出第一阶段每档SPACE数量，默认500 SPACE；', true),
+  ('BUYBACK_SELL_TIER1_STEP_DECREASE_WEI', '10000000000000000', '用户卖出第一阶段每档降价，默认0.01 USDT；', true),
+  ('BUYBACK_SELL_FIXED_PRICE_WEI', '50000000000000000', '用户卖出第三阶段固定价格，默认0.05 USDT；', true),
+  ('BUYBACK_SELL_TIER1_END_AMOUNT_WEI', '5000000000000000000000', '用户卖出第一阶段结束累计量，默认5000 SPACE；', true),
+  ('BUYBACK_SELL_TIER2_END_AMOUNT_WEI', '10000000000000000000000', '用户卖出第二阶段结束累计量，默认10000 SPACE；', true),
+  ('BUYBACK_SELL_TIER2_STEP_AMOUNT_WEI', '1000000000000000000000', '用户卖出第二阶段每档SPACE数量，默认1000 SPACE；', true),
+  ('BUYBACK_SELL_TIER2_STEP_DECREASE_WEI', '10000000000000000', '用户卖出第二阶段每档降价，默认0.01 USDT；', true),
+  ('BUYBACK_SELL_DAILY_MAX_AMOUNT_WEI', '30000000000000000000000', '全平台每日最大用户卖出数量，默认30000 SPACE；', true),
+  ('BUYBACK_SELL_TIER1_BURN_BP', '2500', '用户卖出第一阶段待销毁比例，默认25%；', true),
+  ('BUYBACK_SELL_TIER2_BURN_BP', '5000', '用户卖出第二阶段待销毁比例，默认50%；', true),
+  ('BUYBACK_SELL_TIER3_BURN_BP', '8000', '用户卖出固定价格阶段待销毁比例，默认80%；', true),
+  ('BUYBACK_MAKER_DEFAULT_PRICE_WEI', '500000000000000000', '做市商买入SPACE每日默认价格，默认0.5 USDT；', true),
+  ('BUYBACK_MAKER_STEP_AMOUNT_WEI', '1000000000000000000000', '做市商价格每档累计数量，默认1000 SPACE；', true),
+  ('BUYBACK_MAKER_STEP_INCREASE_WEI', '10000000000000000', '做市商首档后每档涨价，默认0.01 USDT；', true),
+  ('BUYBACK_MAKER_FIRST_STEP_INCREASE_WEI', '100000000000000000', '做市商累计买入达到首档后的首次涨价，默认0.1 USDT；', true)
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  "desc" = EXCLUDED."desc",
+  is_admin_editable = EXCLUDED.is_admin_editable;
+
+DELETE FROM config WHERE key IN (
+  'BUYBACK_FEE_RECEIVER_ADDRESS',
+  'BUYBACK_SELL_STEP_AMOUNT_WEI',
+  'BUYBACK_SELL_STEP_DECREASE_WEI',
+  'BUYBACK_SELL_MIN_PRICE_WEI',
+  'BUYBACK_MAKER_MAX_PRICE_WEI'
+);
+
+COMMIT;

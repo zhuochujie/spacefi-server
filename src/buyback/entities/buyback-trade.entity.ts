@@ -31,6 +31,12 @@ export class BuybackTrade {
   @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
   receiverAmount!: string;
 
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  burnAmount!: string;
+
+  @Column({ type: 'numeric', precision: 28, scale: 0, default: 0 })
+  poolSpaceAmount!: string;
+
   @Column({ type: 'integer' })
   createdAt!: number;
 }
