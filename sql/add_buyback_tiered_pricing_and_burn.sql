@@ -32,7 +32,8 @@ INSERT INTO config (key, value, "desc", is_admin_editable) VALUES
   ('BUYBACK_SELL_TIER2_BURN_BP', '5000', '用户卖出第二阶段待销毁比例，默认50%；', true),
   ('BUYBACK_SELL_TIER3_BURN_BP', '8000', '用户卖出固定价格阶段待销毁比例，默认80%；', true),
   ('BUYBACK_MAKER_DEFAULT_PRICE_WEI', '500000000000000000', '做市商买入SPACE每日默认价格，默认0.5 USDT；', true),
-  ('BUYBACK_MAKER_STEP_AMOUNT_WEI', '1000000000000000000000', '做市商价格每档累计数量，默认1000 SPACE；', true),
+  ('BUYBACK_MAKER_FIRST_STEP_AMOUNT_WEI', '1000000000000000000000', '做市商首次涨价累计数量，默认1000 SPACE；', true),
+  ('BUYBACK_MAKER_STEP_AMOUNT_WEI', '2000000000000000000000', '做市商首次涨价后每档累计数量，默认2000 SPACE；', true),
   ('BUYBACK_MAKER_STEP_INCREASE_WEI', '10000000000000000', '做市商首档后每档涨价，默认0.01 USDT；', true),
   ('BUYBACK_MAKER_FIRST_STEP_INCREASE_WEI', '100000000000000000', '做市商累计买入达到首档后的首次涨价，默认0.1 USDT；', true)
 ON CONFLICT (key) DO UPDATE SET

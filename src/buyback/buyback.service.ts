@@ -967,7 +967,7 @@ export class BuybackService {
   private getMakerBuyPricingConfig(config: BuybackConfig) {
     return {
       defaultPrice: config.makerDefaultPrice,
-      firstStepAmount: config.makerStepAmount,
+      firstStepAmount: config.makerFirstStepAmount,
       firstStepIncrease: config.makerFirstStepIncrease,
       stepAmount: config.makerStepAmount,
       stepIncrease: config.makerStepIncrease,

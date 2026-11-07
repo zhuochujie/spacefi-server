@@ -58,6 +58,8 @@ export class ConfigService {
   static readonly BUYBACK_SELL_FEE_BP_KEY = 'BUYBACK_SELL_FEE_BP';
   static readonly BUYBACK_MAKER_DEFAULT_PRICE_KEY =
     'BUYBACK_MAKER_DEFAULT_PRICE_WEI';
+  static readonly BUYBACK_MAKER_FIRST_STEP_AMOUNT_KEY =
+    'BUYBACK_MAKER_FIRST_STEP_AMOUNT_WEI';
   static readonly BUYBACK_MAKER_STEP_AMOUNT_KEY =
     'BUYBACK_MAKER_STEP_AMOUNT_WEI';
   static readonly BUYBACK_MAKER_STEP_INCREASE_KEY =
@@ -249,6 +251,7 @@ export class ConfigService {
       ConfigService.BUYBACK_SELL_FIXED_PRICE_KEY,
       ConfigService.BUYBACK_SELL_FEE_BP_KEY,
       ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
+      ConfigService.BUYBACK_MAKER_FIRST_STEP_AMOUNT_KEY,
       ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
       ConfigService.BUYBACK_MAKER_STEP_INCREASE_KEY,
       ConfigService.BUYBACK_MAKER_FIRST_STEP_INCREASE_KEY,
@@ -317,6 +320,10 @@ export class ConfigService {
       makerDefaultPrice: this.parsePositiveBigInt(
         ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY,
         configMap.get(ConfigService.BUYBACK_MAKER_DEFAULT_PRICE_KEY),
+      ),
+      makerFirstStepAmount: this.parsePositiveBigInt(
+        ConfigService.BUYBACK_MAKER_FIRST_STEP_AMOUNT_KEY,
+        configMap.get(ConfigService.BUYBACK_MAKER_FIRST_STEP_AMOUNT_KEY),
       ),
       makerStepAmount: this.parsePositiveBigInt(
         ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
@@ -576,9 +583,15 @@ export class ConfigService {
         isAdminEditable: true,
       },
       {
-        key: ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+        key: ConfigService.BUYBACK_MAKER_FIRST_STEP_AMOUNT_KEY,
         value: '1000000000000000000000',
-        desc: '做市商每日累计买入达到该SPACE数量后价格上涨一档；',
+        desc: '做市商首次涨价累计数量，默认1000 SPACE；',
+        isAdminEditable: true,
+      },
+      {
+        key: ConfigService.BUYBACK_MAKER_STEP_AMOUNT_KEY,
+        value: '2000000000000000000000',
+        desc: '做市商首次涨价后每档累计数量，默认2000 SPACE；',
         isAdminEditable: true,
       },
       {

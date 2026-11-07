@@ -30,7 +30,7 @@ const makerConfig: MakerBuyPricingConfig = {
   defaultPrice: price(50),
   firstStepAmount: space(1_000),
   firstStepIncrease: price(10),
-  stepAmount: space(1_000),
+  stepAmount: space(2_000),
   stepIncrease: price(1),
 };
 
@@ -72,8 +72,9 @@ describe('buyback pricing', () => {
     [0, 50],
     [999, 50],
     [1_000, 60],
-    [2_000, 61],
-    [3_000, 62],
+    [2_999, 60],
+    [3_000, 61],
+    [5_000, 62],
   ])('prices maker buy cursor %s at %s cents', (cursor, cents) => {
     expect(getMakerBuyPrice(space(cursor), makerConfig)).toBe(price(cents));
   });
@@ -84,6 +85,6 @@ describe('buyback pricing', () => {
   });
 
   it('continues increasing the maker price without a cap', () => {
-    expect(getMakerBuyPrice(space(100_000), makerConfig)).toBe(price(159));
+    expect(getMakerBuyPrice(space(100_000), makerConfig)).toBe(price(109));
   });
 });
